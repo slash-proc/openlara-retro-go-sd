@@ -278,6 +278,21 @@ bool read_PKD(DataStream &f)
     memcpy(gLightmap, level.lightmap, sizeof(gLightmap));
 #endif
 
+    /* Reject levels that still exceed GNW limits (avoid silent buffer overruns). */
+    if (level.roomsCount > MAX_ROOMS ||
+        level.texturesCount > MAX_TEXTURES ||
+        level.spritesCount > MAX_SPRITES ||
+        level.boxesCount > MAX_BOXES ||
+        level.camerasCount > MAX_CAMERAS) {
+#if defined(__GNW__) || defined(HOST_BUILD)
+        printf("openlara: PKD limits exceeded (rooms=%u tex=%u spr=%u box=%u cam=%u)\n",
+               (unsigned)level.roomsCount, (unsigned)level.texturesCount,
+               (unsigned)level.spritesCount, (unsigned)level.boxesCount,
+               (unsigned)level.camerasCount);
+#endif
+        return false;
+    }
+
 #if !defined(HOST_BUILD)
 #ifdef ROM_READ
     // prepare textures (required by anim tex logic)

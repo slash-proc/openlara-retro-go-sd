@@ -1,0 +1,20 @@
+--- a/src/fixed/common.h
++++ b/src/fixed/common.h
+@@ -497,6 +497,17 @@
+ #define MAX_DYN_SECTORS     (1024*3)
+ #define MAX_SAMPLES         180
+ 
++#ifdef __GNW__
++/* Large TR1 PKDs exceed GBA defaults: EGYPT ~8512 mutable sectors, EGYPT/CAT
++ * >1024 nav boxes, CAT/END >16 fixed cameras. */
++#undef MAX_DYN_SECTORS
++#define MAX_DYN_SECTORS     (1024 * 9)
++#undef MAX_BOXES
++#define MAX_BOXES           2048
++#undef MAX_CAMERAS
++#define MAX_CAMERAS         32
++#endif
++
+ #ifndef VIEW_DIST
+     #define VIEW_DIST (1024 * 10)
+ #endif

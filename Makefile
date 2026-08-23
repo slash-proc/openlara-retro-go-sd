@@ -41,6 +41,7 @@ src/platform/gnw/present.cpp \
 src/platform/gnw/input.cpp \
 src/platform/gnw/sound.cpp \
 src/platform/gnw/fmv.cpp \
+src/platform/gnw/gnw_cam_debug.cpp \
 $(OPENLARA)/src/fixed/common.cpp \
 $(OPENLARA)/src/platform/gba/render.iwram.cpp
 
@@ -84,6 +85,7 @@ $(BUILD_DIR)/present.o \
 $(BUILD_DIR)/input.o \
 $(BUILD_DIR)/sound.o \
 $(BUILD_DIR)/fmv.o \
+$(BUILD_DIR)/gnw_cam_debug.o \
 $(BUILD_DIR)/common.o \
 $(BUILD_DIR)/render.iwram.o \
 $(BUILD_DIR)/gw_core_cxx_support.o
@@ -99,6 +101,7 @@ src/platform/gnw/os.cpp \
 src/platform/gnw/present.cpp \
 src/platform/gnw/input.cpp \
 src/platform/gnw/sound.cpp \
+src/platform/gnw/gnw_cam_debug.cpp \
 $(OPENLARA)/src/fixed/common.cpp \
 $(OPENLARA)/src/platform/gba/render.iwram.cpp
 HOST_CXX_EXTRA_INCLUDES := $(OL_INC) -Isrc/platform/gnw
@@ -133,6 +136,14 @@ prepare:
 		cp patches/host-overlay/src/platform/gba/rasterizer.h $(OPENLARA)/src/platform/gba/rasterizer.h; \
 		cp patches/host-overlay/src/platform/gba/render.iwram.cpp $(OPENLARA)/src/platform/gba/render.iwram.cpp; \
 		patch -d $(OPENLARA) -p1 < patches/0002-openlara-host.patch; \
+	fi
+	@if ! grep -q '1024 \* 9' $(OPENLARA)/src/fixed/common.h 2>/dev/null; then \
+		echo "[ PATCH ] patches/0003-openlara-limits.patch"; \
+		patch -d $(OPENLARA) -p1 < patches/0003-openlara-limits.patch; \
+	fi
+	@if ! grep -q 'struct MidasHand' $(OPENLARA)/src/fixed/object.h 2>/dev/null; then \
+		echo "[ PATCH ] patches/0004-openlara-gameplay.patch"; \
+		patch -d $(OPENLARA) -p1 < patches/0004-openlara-gameplay.patch; \
 	fi
 	@test -L src/platform/gnw/ol || ln -sfn ../../../third_party/OpenLara/src/fixed src/platform/gnw/ol
 
