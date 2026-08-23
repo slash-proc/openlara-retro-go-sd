@@ -1,0 +1,4 @@
+[submodule "third_party/OpenLara"]
+	path = third_party/OpenLara
+	url = git@github.com:sylverb/OpenLara.git
+	branch = gnw

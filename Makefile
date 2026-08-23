@@ -6,7 +6,9 @@
 #   make host                         — macOS/Linux SDL build (no FMV)
 #   ./OpenLara_host [data_dir]        — PKD folder (see OPENLARA_DATA)
 #
-# Requires third_party/OpenLara (see scripts/fetch_openlara.sh + README).
+# Requires third_party/OpenLara submodule (sylverb/OpenLara @ gnw).
+#   git submodule update --init --recursive
+#   or: ./scripts/fetch_openlara.sh
 
 #######################################
 # Project identity
@@ -125,26 +127,8 @@ CORE_VERSION ?= $(shell git describe --tags --dirty 2>/dev/null || echo NOTAG)
 
 prepare:
 	@test -f $(OPENLARA)/src/fixed/common.h || { \
-		echo "Missing $(OPENLARA) — run: ./scripts/fetch_openlara.sh"; exit 1; }
-	@if ! grep -q '__GNW__' $(OPENLARA)/src/fixed/common.h; then \
-		echo "[ PATCH ] patches/0001-openlara-gnw.patch"; \
-		patch -d $(OPENLARA) -p1 < patches/0001-openlara-gnw.patch; \
-	fi
-	@if ! grep -q 'HOST_BUILD' $(OPENLARA)/src/fixed/fmt/pkd.h 2>/dev/null; then \
-		echo "[ HOST ] patches/host-overlay + 0002-openlara-host.patch"; \
-		cp patches/host-overlay/src/fixed/fmt/pkd.h $(OPENLARA)/src/fixed/fmt/pkd.h; \
-		cp patches/host-overlay/src/platform/gba/rasterizer.h $(OPENLARA)/src/platform/gba/rasterizer.h; \
-		cp patches/host-overlay/src/platform/gba/render.iwram.cpp $(OPENLARA)/src/platform/gba/render.iwram.cpp; \
-		patch -d $(OPENLARA) -p1 < patches/0002-openlara-host.patch; \
-	fi
-	@if ! grep -q '1024 \* 9' $(OPENLARA)/src/fixed/common.h 2>/dev/null; then \
-		echo "[ PATCH ] patches/0003-openlara-limits.patch"; \
-		patch -d $(OPENLARA) -p1 < patches/0003-openlara-limits.patch; \
-	fi
-	@if ! grep -q 'struct MidasHand' $(OPENLARA)/src/fixed/object.h 2>/dev/null; then \
-		echo "[ PATCH ] patches/0004-openlara-gameplay.patch"; \
-		patch -d $(OPENLARA) -p1 < patches/0004-openlara-gameplay.patch; \
-	fi
+		echo "Missing $(OPENLARA) — run: git submodule update --init --recursive"; \
+		echo "  (or ./scripts/fetch_openlara.sh)"; exit 1; }
 	@test -L src/platform/gnw/ol || ln -sfn ../../../third_party/OpenLara/src/fixed src/platform/gnw/ol
 
 cover: $(COVER_JPG)

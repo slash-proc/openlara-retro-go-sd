@@ -13,18 +13,19 @@ it, shows a short “put PKD here” screen.
 - `arm-none-eabi-gcc` (v10+, hard-float `fpv5-d16`) **or** Docker image
   `sylverb/retro-go-sd-builder` (default tag `v1.5`)
 - Python 3 + Pillow (`pip install -r requirements.txt`) for the cover JPEG
-- OpenLara sources under `third_party/OpenLara` (see below)
+- OpenLara submodule under `third_party/OpenLara` (see below)
 
-## Fetch OpenLara + apply GNW patch
+## Init OpenLara submodule
 
 ```bash
+git submodule update --init --recursive
+# or:
 ./scripts/fetch_openlara.sh
 ```
 
-This sparse-clones `src/fixed` + `src/platform/gba` and applies
-`patches/0001-openlara-gnw.patch` (`__GNW__` platform block).
-
-Pinned commit is recorded in `third_party/OpenLara/UPSTREAM.txt`.
+Uses [sylverb/OpenLara](https://github.com/sylverb/OpenLara) branch `gnw`.
+GNW / host changes are committed on that branch (see `patches/` for the
+historical diffs used during the port).
 
 ## Build
 
@@ -167,10 +168,10 @@ Without `TRACKS.AD4` the game still runs; only music is silent.
 Makefile                 Homebrew pack → OpenLara.bin
 src/platform/gnw/        OS, present, input, sound, app_main
 src/platform/gnw/ol →    symlink to third_party/OpenLara/src/fixed
-third_party/OpenLara/    Upstream fixed engine + GBA rasterizer (patched)
-patches/                 __GNW__ diffs for OpenLara
+third_party/OpenLara/    submodule: sylverb/OpenLara @ gnw
+patches/                 historical GNW diffs (applied on the submodule branch)
 sdk/                     Retro-Go SD core SDK (ABI bridge)
-scripts/fetch_openlara.sh
+scripts/fetch_openlara.sh  submodule init helper
 ```
 
 `src/main.c` is the old template skeleton and is **not** linked for this

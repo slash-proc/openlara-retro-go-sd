@@ -12,7 +12,7 @@ host_saves/
 *.lst
 .DS_Store
 __pycache__/
-# Fetched by ./scripts/fetch_openlara.sh (do not commit the nested clone)
-third_party/OpenLara/
 # Large game assets (PKD) — keep on SD / local only
 sd_assets/
+# Local PKD/test data (not part of the homebrew binary)
+data/
