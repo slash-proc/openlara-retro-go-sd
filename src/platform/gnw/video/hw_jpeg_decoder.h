@@ -10,6 +10,8 @@ extern uint32_t g_jpeg_hal, g_jpeg_err, g_jpeg_rej, g_jpeg_sub, g_jpeg_need;
 uint32_t JPEG_DecodeDeInit(void);
 
 uint32_t video_jpeg_init(uint32_t work, uint32_t work_size);
+/* Point YCbCr output at another pool (e.g. LCD back-buffer) without re-init. */
+void video_jpeg_set_work(uint32_t work, uint32_t work_size);
 uint32_t video_jpeg_decode(uint32_t src, uint32_t src_size, uint32_t dst,
                            uint16_t x, uint16_t y, uint8_t luma_alpha);
 uint32_t video_jpeg_deinit(void);

@@ -1,17 +1,15 @@
 /*
  * Hardware JPEG decode for the video homebrew.
  *
- * Same recipe as the firmware decoder (JPEG core → YCbCr → DMA2D → RGB565),
- * but linked into this binary so we own SrcSize, the GetDataCallback, and
- * error handling. HAL_JPEG_Decode is polling (CPU feeds the FIFOs) — no JPEG
- * or MDMA IRQ, so we do not fight the firmware vector table.
+ * JPEG core → small YCbCr strip (RAM_EMU) → DMA2D → RGB565 back-buffer.
+ * Chunked output so we never need a full-frame YCbCr buffer (~115 KiB) and
+ * never park YCbCr in an LCD framebuffer (that looked like blue/green blocks).
  *
- * JPEG / DMA2D clocks are already on from firmware boot; MspInit re-enables
- * them and masks the JPEG IRQ. DeInit leaves the peripheral quiet so the
- * launcher can HAL_JPEG_Init its own handle for covers afterwards.
+ * Polling HAL, no JPEG/MDMA IRQs — does not fight the firmware vector table.
  */
 
 #include "hw_jpeg_decoder.h"
+#include "gw_lcd.h"
 #include "main.h"
 #include "stm32h7xx_hal.h"
 #include "stm32h7xx_hal_mdma.h"
@@ -37,6 +35,15 @@ static uint32_t FrameBufferMode;
 static uint32_t disable_transfer;
 static uint32_t decode_rejected;
 
+static uint32_t s_streaming;
+static uint32_t s_out_y;
+static uint32_t s_bytes_per_mcu_row;
+static uint32_t s_mcu_lines;
+static uint32_t s_chunk_bytes;
+static uint32_t cssMode;
+static uint32_t inputLineOffset;
+static uint32_t s_dma2d_ready;
+
 uint32_t g_jpeg_hal, g_jpeg_err, g_jpeg_rej, g_jpeg_sub, g_jpeg_need;
 
 static void (*s_poll)(void);
@@ -52,7 +59,9 @@ void video_jpeg_poll(void)
         s_poll();
 }
 
-static void COPY_JpegOut(void);
+static int COPY_JpegOutInit(void);
+static int COPY_JpegOutConfigLayers(void);
+static void COPY_JpegOut_Rect(uint32_t src, uint32_t lines, uint32_t dst_y);
 
 void HAL_JPEG_MspInit(JPEG_HandleTypeDef *hjpeg)
 {
@@ -91,9 +100,16 @@ uint32_t video_jpeg_init(uint32_t work, uint32_t work_size)
     return JPEG_DecodeInit(work, work_size);
 }
 
+void video_jpeg_set_work(uint32_t work, uint32_t work_size)
+{
+    JPEGBufferAddress = work;
+    JPEGBufferSize = work_size;
+}
+
 uint32_t video_jpeg_deinit(void)
 {
     (void)HAL_DMA2D_DeInit(&DMA2D_Handle);
+    s_dma2d_ready = 0;
     return HAL_JPEG_DeInit(&JPEG_Handle);
 }
 
@@ -107,6 +123,9 @@ static uint32_t JPEG_Run(uint32_t SrcAddress, uint32_t SrcSize)
     SrcSize = (SrcSize + 3u) & ~3u;
 
     decode_rejected = 0;
+    s_streaming = 0;
+    s_out_y = 0;
+    s_dma2d_ready = 0;
     g_jpeg_hal = g_jpeg_err = g_jpeg_rej = g_jpeg_sub = g_jpeg_need = 0;
     memset(&JPEG_info, 0, sizeof(JPEG_info));
 
@@ -116,6 +135,9 @@ static uint32_t JPEG_Run(uint32_t SrcAddress, uint32_t SrcSize)
     wdog_refresh();
     g_jpeg_hal = (uint32_t)st;
     g_jpeg_err = JPEG_Handle.ErrorCode;
+    if (s_dma2d_ready)
+        (void)HAL_DMA2D_DeInit(&DMA2D_Handle);
+    s_dma2d_ready = 0;
     if (st != HAL_OK || decode_rejected) {
         (void)HAL_JPEG_Abort(&JPEG_Handle);
         JPEG_Handle.Lock = HAL_UNLOCKED;
@@ -137,11 +159,43 @@ uint32_t video_jpeg_decode(uint32_t src, uint32_t src_size, uint32_t dst,
     return JPEG_Run(src, src_size);
 }
 
+static uint32_t chunk_lines_from_bytes(uint32_t nbytes)
+{
+    if (s_bytes_per_mcu_row == 0)
+        return 0;
+    return (nbytes / s_bytes_per_mcu_row) * s_mcu_lines;
+}
+
 void HAL_JPEG_DataReadyCallback(JPEG_HandleTypeDef *hJPEG, uint8_t *pDataOut, uint32_t OutDataLength)
 {
-    (void)hJPEG;
-    (void)pDataOut;
-    (void)OutDataLength;
+    if (disable_transfer || decode_rejected || OutDataLength == 0) {
+        HAL_JPEG_ConfigOutputBuffer(hJPEG, (uint8_t *)JPEGBufferAddress,
+                                    s_chunk_bytes ? s_chunk_bytes : JPEGBufferSize);
+        return;
+    }
+
+    if (!s_streaming) {
+        /* Full-frame mode: convert once in DecodeCplt. */
+        return;
+    }
+
+    /* Pause output while we DMA2D this strip, then reuse the same strip. */
+    (void)HAL_JPEG_Pause(hJPEG, JPEG_PAUSE_RESUME_OUTPUT);
+
+    {
+        uint32_t lines = chunk_lines_from_bytes(OutDataLength);
+        if (lines > 0 && s_out_y < JPEG_info.ImageHeight) {
+            if (s_out_y + lines > JPEG_info.ImageHeight)
+                lines = JPEG_info.ImageHeight - s_out_y;
+            COPY_JpegOut_Rect((uint32_t)pDataOut, lines, (uint32_t)yPos + s_out_y);
+            s_out_y += lines;
+        }
+    }
+
+    HAL_JPEG_ConfigOutputBuffer(hJPEG, (uint8_t *)JPEGBufferAddress, s_chunk_bytes);
+    (void)HAL_JPEG_Resume(hJPEG, JPEG_PAUSE_RESUME_OUTPUT);
+    video_jpeg_poll();
+    wdog_refresh();
 }
 
 void HAL_JPEG_ErrorCallback(JPEG_HandleTypeDef *hJPEG)
@@ -153,12 +207,18 @@ void HAL_JPEG_ErrorCallback(JPEG_HandleTypeDef *hJPEG)
 void HAL_JPEG_DecodeCpltCallback(JPEG_HandleTypeDef *hJPEG)
 {
     (void)hJPEG;
-    if (disable_transfer == 0 && decode_rejected == 0)
-        COPY_JpegOut();
+    if (disable_transfer || decode_rejected)
+        return;
+    if (!s_streaming) {
+        COPY_JpegOut_Rect(JPEGBufferAddress, JPEG_info.ImageHeight, yPos);
+    }
+    /* Streaming: strips already blitted in DataReadyCallback. */
 }
 
 void HAL_JPEG_InfoReadyCallback(JPEG_HandleTypeDef *hJPEG, JPEG_ConfTypeDef *pInfo)
 {
+    uint32_t ImgSize;
+
     (void)pInfo;
     if (HAL_OK != HAL_JPEG_GetInfo(hJPEG, &JPEG_info)) {
         decode_rejected = 1;
@@ -167,17 +227,37 @@ void HAL_JPEG_InfoReadyCallback(JPEG_HandleTypeDef *hJPEG, JPEG_ConfTypeDef *pIn
         return;
     }
 
-    uint32_t ImgSize;
     g_jpeg_sub = JPEG_info.ChromaSubsampling;
-    if (JPEG_info.ChromaSubsampling == JPEG_420_SUBSAMPLING)
+    if (JPEG_info.ChromaSubsampling == JPEG_420_SUBSAMPLING) {
         ImgSize = MCU_ROUND(JPEG_info.ImageWidth, 16) * MCU_ROUND(JPEG_info.ImageHeight, 16) * 3 / 2;
-    else if (JPEG_info.ChromaSubsampling == JPEG_422_SUBSAMPLING)
+        s_mcu_lines = 16;
+        s_bytes_per_mcu_row = MCU_ROUND(JPEG_info.ImageWidth, 16) * 16u * 3u / 2u;
+    } else if (JPEG_info.ChromaSubsampling == JPEG_422_SUBSAMPLING) {
         ImgSize = MCU_ROUND(JPEG_info.ImageWidth, 16) * MCU_ROUND(JPEG_info.ImageHeight, 8) * 2;
-    else
+        s_mcu_lines = 8;
+        s_bytes_per_mcu_row = MCU_ROUND(JPEG_info.ImageWidth, 16) * 8u * 2u;
+    } else {
         ImgSize = MCU_ROUND(JPEG_info.ImageWidth, 8) * MCU_ROUND(JPEG_info.ImageHeight, 8) * 3;
+        s_mcu_lines = 8;
+        s_bytes_per_mcu_row = MCU_ROUND(JPEG_info.ImageWidth, 8) * 8u * 3u;
+    }
 
     g_jpeg_need = ImgSize;
-    if (ImgSize > JPEGBufferSize) {
+    s_out_y = 0;
+    s_chunk_bytes = 0;
+    s_streaming = (ImgSize > JPEGBufferSize) ? 1u : 0u;
+
+    if (s_streaming) {
+        if (s_bytes_per_mcu_row == 0 || JPEGBufferSize < s_bytes_per_mcu_row) {
+            decode_rejected = 1;
+            g_jpeg_rej = 2;
+            (void)HAL_JPEG_Pause(hJPEG, JPEG_PAUSE_RESUME_INPUT_OUTPUT);
+            return;
+        }
+        /* Only whole MCU rows — partial rows break DMA2D YCbCr pitch. */
+        s_chunk_bytes = (JPEGBufferSize / s_bytes_per_mcu_row) * s_bytes_per_mcu_row;
+        HAL_JPEG_ConfigOutputBuffer(hJPEG, (uint8_t *)JPEGBufferAddress, s_chunk_bytes);
+    } else if (ImgSize > JPEGBufferSize) {
         decode_rejected = 1;
         g_jpeg_rej = 2;
         (void)HAL_JPEG_Pause(hJPEG, JPEG_PAUSE_RESUME_INPUT_OUTPUT);
@@ -191,8 +271,6 @@ void HAL_JPEG_GetDataCallback(JPEG_HandleTypeDef *hJPEG, uint32_t NbDecodedData)
      * do not treat it as a rejection. */
     HAL_JPEG_ConfigInputBuffer(hJPEG, NULL, 0);
 }
-
-static uint32_t cssMode = DMA2D_CSS_420, inputLineOffset;
 
 static int COPY_JpegOutInit(void)
 {
@@ -246,21 +324,23 @@ static int COPY_JpegOutConfigLayers(void)
     return HAL_DMA2D_ConfigLayer(&DMA2D_Handle, 0) == HAL_OK ? 0 : -1;
 }
 
-static void COPY_JpegOut(void)
+static void COPY_JpegOut_Rect(uint32_t src, uint32_t lines, uint32_t dst_y)
 {
     uint32_t destination;
 
-    if (COPY_JpegOutInit() != 0 || COPY_JpegOutConfigLayers() != 0)
+    if (lines == 0)
         return;
 
-    destination = FrameBufferAddress + ((yPos * LCD_X_SIZE) + xPos) * 2u;
-    /* LCD FB is uncached; only the YCbCr work buffer lives in cached RAM_EMU.
-     * A full SCB_CleanInvalidateDCache() also evicts the PCM ring the SAI ISR
-     * is reading — extra AXI latency, and a long stall with no audio feed. */
-    SCB_CleanDCache_by_Addr((uint32_t *)JPEGBufferAddress,
-                            (int32_t)((JPEGBufferSize + 31u) & ~31u));
-    if (HAL_DMA2D_Start(&DMA2D_Handle, JPEGBufferAddress, destination,
-                        JPEG_info.ImageWidth, JPEG_info.ImageHeight) != HAL_OK)
+    if (!s_dma2d_ready) {
+        if (COPY_JpegOutInit() != 0 || COPY_JpegOutConfigLayers() != 0)
+            return;
+        s_dma2d_ready = 1;
+    }
+
+    destination = FrameBufferAddress + ((dst_y * LCD_X_SIZE) + xPos) * 2u;
+    SCB_CleanDCache_by_Addr((uint32_t *)src, (int32_t)((JPEGBufferSize + 31u) & ~31u));
+    if (HAL_DMA2D_Start(&DMA2D_Handle, src, destination,
+                        JPEG_info.ImageWidth, lines) != HAL_OK)
         return;
     {
         uint32_t t0 = HAL_GetTick();
@@ -274,7 +354,6 @@ static void COPY_JpegOut(void)
                 break;
         }
     }
-    (void)HAL_DMA2D_DeInit(&DMA2D_Handle);
 }
 
 /* HAL_JPEG_Abort's DMA branch references these; polling never takes it. */

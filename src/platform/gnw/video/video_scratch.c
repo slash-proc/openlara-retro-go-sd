@@ -17,5 +17,6 @@ bool video_scratch_acquire(void)
 
 void video_scratch_release(void)
 {
-    /* ram_malloc has no free — keep the 256 KiB buffer for the next cutscene. */
+    /* ram_malloc has no free — keep the scratch for the next cutscene /
+     * TITLE.SCR reuse after boot FMV. */
 }

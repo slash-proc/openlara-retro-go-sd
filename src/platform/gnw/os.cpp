@@ -14,6 +14,7 @@ extern "C" {
 #include "host_compat.h"
 #else
 #include "gw_core_bridge.h"
+#include "video_scratch.h"
 #endif
 }
 
@@ -237,8 +238,18 @@ static bool title_scr_load_cb(const char *path, void *vctx)
 
     ram = (uint8_t *)ram_malloc(tmp.size);
     if (!ram) {
-        printf("openlara: TITLE.SCR ram_malloc(%lu) failed\n", (unsigned long)tmp.size);
-        return false;
+#ifndef HOST_BUILD
+        /* Boot FMV keeps ~80 KiB scratch via ram_malloc (no free). TITLE.SCR
+         * is 38 KiB — reuse that block once FMV is done. */
+        if (g_scratch && tmp.size <= VIDEO_SCRATCH_SIZE) {
+            ram = g_scratch;
+            printf("openlara: TITLE.SCR → reuse video scratch\n");
+        } else
+#endif
+        {
+            printf("openlara: TITLE.SCR ram_malloc(%lu) failed\n", (unsigned long)tmp.size);
+            return false;
+        }
     }
     memcpy(ram, tmp.buf, tmp.size);
     s_title_scr = ram;
@@ -294,8 +305,8 @@ const void *osLoadLevel(LevelID id)
         return NULL;
 
     /*
-     * FMV before TITLE.SCR / PKD so ram_malloc has the full ~229 KiB free
-     * (TITLE.SCR alone is ~38 KiB and would starve the 184 KiB video scratch).
+     * FMV before TITLE.SCR / PKD. Scratch is ~80 KiB (JPEG + YCbCr strip);
+     * TITLE.SCR (~38 KiB) reuses that block if ram_malloc is tight.
      */
     gnw_play_fmv_for_level((int)id);
 

@@ -1,5 +1,6 @@
 // OpenLara cutscene player: demux MJPEG+MP3 AVI to the LCD.
-// A skips; PAUSE/SET opens the classic Retro-Go menu. No transport OSD.
+// A skips; PAUSE/SET = Retro-Go menu + PAUSE+D-pad volume/brightness.
+// No transport OSD.
 #pragma once
 
 typedef enum {

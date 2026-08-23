@@ -1,7 +1,8 @@
 // Video playback loop — see video_play.h.
 //
 // OpenLara cutscene mode: demux AVI, HW-decode MJPEG to LCD, feed MP3 to SAI.
-// Controls: A = skip, PAUSE/SET (VOLUME) = classic Retro-Go game menu.
+// Controls: A = skip; PAUSE/SET = Retro-Go menu (release) and PAUSE+D-pad
+// volume/brightness macros (same path as the main game loop).
 // No transport OSD, scrub, speed, or video-specific options.
 
 #include "video_play.h"
@@ -260,6 +261,22 @@ static odroid_dialog_choice_t s_game_options[] = {
     ODROID_DIALOG_CHOICE_LAST
 };
 
+/* Firmware pause/menu may clear the active buffer; restore the last presented
+ * frame (inactive after lcd_swap) so the dialog has something under it. */
+static void video_repaint(void)
+{
+    pixel_t *active;
+    pixel_t *inactive;
+
+    wdog_refresh();
+    video_audio_pump();
+    active = (pixel_t *)lcd_get_active_buffer();
+    inactive = (pixel_t *)lcd_get_inactive_buffer();
+    if (active && inactive && active != inactive)
+        memcpy(active, inactive, GW_LCD_FRAME_SIZE);
+    common_ingame_overlay();
+}
+
 vid_result_t video_play(const char *path)
 {
     avi_t a;
@@ -314,27 +331,40 @@ vid_result_t video_play(const char *path)
         odroid_input_read_gamepad(&joy);
         #define HIT(b) (joy.values[b] && !prev.values[b])
 
-        /* A = skip cutscene */
-        if (HIT(ODROID_INPUT_A)) {
+        /* A alone skips; VOLUME+A is the firmware save-state macro. */
+        if (HIT(ODROID_INPUT_A) && !joy.values[ODROID_INPUT_VOLUME]) {
             stopped = true;
             prev = joy;
             break;
         }
 
-        /* PAUSE/SET (and MENU) → classic Retro-Go pause / game menu */
-        if (HIT(ODROID_INPUT_VOLUME) || HIT(ODROID_INPUT_MENU)) {
-            apply_audio(false);
-            /* common_emu_input_loop opens the standard overlay when VOLUME/MENU
-             * is held — same path as the main game loop. */
-            common_emu_input_loop(&joy, s_game_options, NULL);
-            apply_audio(true);
-            anchored = false;
-            odroid_input_read_gamepad(&prev);
-            if (ent.slot >= 0)
-                pf_busy &= ~(1 << ent.slot);
-            continue;
+        /*
+         * Firmware UX while PAUSE/SET is held (volume/brightness macros) or on
+         * release (pause menu). Still decode this frame — only skipping here
+         * freezes FMV for the whole hold. Re-anchor after a release (menu may
+         * have blocked); do not reset timing on every held poll.
+         */
+        if (joy.values[ODROID_INPUT_VOLUME] || prev.values[ODROID_INPUT_VOLUME]) {
+            if (!lcd_is_swap_pending()) {
+                bool pause_release = prev.values[ODROID_INPUT_VOLUME] &&
+                                     !joy.values[ODROID_INPUT_VOLUME];
+                apply_audio(false);
+                common_emu_input_loop(&joy, s_game_options, &video_repaint);
+                apply_audio(true);
+                if (pause_release)
+                    anchored = false;
+                odroid_input_read_gamepad(&prev);
+            }
+        } else {
+            prev = joy;
         }
-        prev = joy;
+
+        /* Firmware only runs overlay timeout inside common_emu_input_loop.
+         * FMV skips that most frames — expire the quick-access HUD here. */
+        if (common_emu_state.overlay != 0 &&
+            get_elapsed_time_since(common_emu_state.last_overlay_time) > 1000u) {
+            common_emu_state.overlay = 0; /* INGAME_OVERLAY_NONE */
+        }
 
         nv_seen++;
         uint32_t fr_us = (uint32_t)a.usec_per_frame;
@@ -356,6 +386,7 @@ vid_result_t video_play(const char *path)
         s_poll_paused = false;
         pf_wait_swap(&a, 1, false, &na_seen);
 
+        /* RGB565 + HUD on the back buffer, then swap (classic emu path). */
         bool dec_ok_now = (ent.slot >= 0) &&
             video_decode_slot(video_slot(ent.slot), ent.sz,
                               lcd_get_active_buffer(), GW_LCD_WIDTH, GW_LCD_HEIGHT);
@@ -367,6 +398,8 @@ vid_result_t video_play(const char *path)
         if (dec_ok_now) {
             decoded_any = true;
             dec_ok++;
+            common_ingame_overlay();
+            lcd_swap();
         } else if (nv_seen >= 30 && !decoded_any) {
             build_diag(&a, nv_seen, na_seen);
             stopped = true;
@@ -381,7 +414,6 @@ vid_result_t video_play(const char *path)
                 HAL_Delay(1);
             }
         }
-        lcd_swap();
         frame_idx++;
         (void)dec_ok;
     }
