@@ -1,0 +1,709 @@
+--- a/src/fixed/common.h	2026-08-16 04:23:31
++++ b/src/fixed/common.h	2026-08-15 13:55:09
+@@ -159,6 +159,20 @@
+         MARS_CMD_CLEAR,
+         MARS_CMD_FLUSH
+     };
++#elif defined(__GNW__)
++    #define USE_DIV_TABLE
++    /* Mutable texture/sprite tables in RAM; PKD blob can live in flash (RO). */
++    #define ROM_READ
++
++    #define MODE4
++    #define FRAME_WIDTH  240
++    #define FRAME_HEIGHT 160
++
++    #define USE_FMT     (LVL_FMT_PKD)
++
++    /* Freestanding Cortex-M7 / Retro-Go SD homebrew — no tonc, no GBA ASM. */
++    #include <stddef.h>
++    #include <stdint.h>
+ #else
+     #error unsupported platform
+ #endif
+@@ -186,9 +200,12 @@
+     #include <string.h>
+ #endif
+ 
+-#include "stdio.h" // TODO_3DO armcpp bug?
+-
+-#include <math.h>
++#if defined(__GNW__)
++    #include "gnw_compat.h"
++#else
++    #include "stdio.h" // TODO_3DO armcpp bug?
++    #include <math.h>
++#endif
+ #include <limits.h>
+ 
+ #ifndef USE_FMT
+@@ -209,6 +226,14 @@
+     #define VIEW_DIST (10 << 10)
+ // skip collideSpheres for enemies
+     #define FAST_HITMASK
++#endif
++
++#ifdef __GNW__
++/* H7B0: restore plants / more enemies, but keep GBA fog distance — a longer
++ * VIEW_DIST leaves noisy/incorrect texels in far “black” clip regions. */
++    #define LOD_TRAP_FLOOR
++    #define MAX_ENEMIES 8
++    #define VIEW_DIST (10 << 10)
+ #endif
+ 
+ #ifdef __3DO__
+@@ -312,7 +337,9 @@
+ }
+ #endif
+ 
+-#if defined(__GBA__) || defined(__NDS__) || defined(__32X__)
++#if defined(__GNW__)
++    #define int2str(x,str) gnw_itoa(x, str, 10)
++#elif defined(__GBA__) || defined(__NDS__) || defined(__32X__)
+     #define int2str(x,str) itoa(x, str, 10)
+ #elif defined(__3DO__)
+     #define int2str(x,str) sprintf(str, "%d", x)
+@@ -350,6 +377,8 @@
+     extern uint16 fb[FRAME_WIDTH * FRAME_HEIGHT];
+ #elif defined(__DOS__)
+     extern uint16 fb[FRAME_WIDTH * FRAME_HEIGHT];
++#elif defined(__GNW__)
++    extern uint16 fb[(FRAME_WIDTH * FRAME_HEIGHT) / 2];
+ #endif
+ 
+ #define STATIC_MESH_FLAG_NO_COLLISION   1
+@@ -412,6 +441,19 @@
+     #define SND_SAMPLES      1024
+     #define SND_OUTPUT_FREQ  11025
+     #define SND_SAMPLE_FREQ  11025
++    #define SND_ENCODE(x)    ((x) + 128)
++    #define SND_DECODE(x)    ((x) - 128)
++    #define SND_MIN          -128
++    #define SND_MAX          127
++#elif defined(__GNW__)
++    /*
++     * GBA ADPCM/music is ~10512 Hz; firmware has no 10512 but has 11025.
++     * Play tracks 1:1 at 11025 (≈5% fast vs GBA, no resample artifacts).
++     * PCM SFX stay authored at 22050 and are rate-converted via CALC_INC.
++     */
++    #define SND_SAMPLES      368
++    #define SND_OUTPUT_FREQ  11025
++    #define SND_SAMPLE_FREQ  22050
+     #define SND_ENCODE(x)    ((x) + 128)
+     #define SND_DECODE(x)    ((x) - 128)
+     #define SND_MIN          -128
+@@ -809,7 +851,7 @@
+ {
+ #if defined(__3DO__)
+     uint16 xyz565;
+-#elif defined(__GBA__) || defined(__GBA_WIN__) || defined(__32X__)
++#elif defined(__GBA__) || defined(__GBA_WIN__) || defined(__32X__) || defined(__GNW__)
+     uint8 x, y, z, g;
+ #else
+     uint8 x, y, z, g;
+@@ -2807,7 +2849,7 @@
+ void matrixFrameLerp(const void* pos, const void* anglesA, const void* anglesB, int32 delta, int32 rate);
+ void matrixSetView(const vec3i &pos, int32 angleX, int32 angleY);
+ 
+-#if defined(__GBA__) || defined(__GBA_WIN__)
++#if defined(__GBA__) || defined(__GBA_WIN__) || defined(__GNW__)
+ #define renderInit()
+ #define renderFree()
+ #define renderSwap()
+--- a/src/fixed/common.cpp	2026-08-16 04:23:31
++++ b/src/fixed/common.cpp	2026-08-15 15:08:23
+@@ -45,31 +45,33 @@
+ EWRAM_DATA LevelID gLevelID = LVL_TR1_TITLE;
+ 
+ const LevelInfo gLevelInfo[LVL_MAX] = {
+-// TR1
++/* Full TR1 + Unfinished Business (GBA demo only shipped TITLE..LEVEL2). */
+     LEVEL_INFO( TITLE     , STR_EMPTY         , TRACK_TR1_TITLE     , 0 ),
+     LEVEL_INFO( GYM       , STR_TR1_GYM       , TRACK_NONE          , 0 ),
+     LEVEL_INFO( LEVEL1    , STR_TR1_LEVEL1    , TRACK_TR1_CAVES     , 3 ),
+     LEVEL_INFO( LEVEL2    , STR_TR1_LEVEL2    , TRACK_TR1_CAVES     , 3 ),
+-    //LEVEL_INFO( LEVEL3A   , STR_TR1_LEVEL3A   , TRACK_TR1_CAVES     , 5 ),
+-    //LEVEL_INFO( LEVEL3B   , STR_TR1_LEVEL3B   , TRACK_TR1_CAVES     , 3 ),
+-    //LEVEL_INFO( CUT1      , STR_EMPTY         , TRACK_TR1_CUT_1     , 0 ),
+-    //LEVEL_INFO( LEVEL4    , STR_TR1_LEVEL4    , TRACK_TR1_WIND      , 4 ),
+-    //LEVEL_INFO( LEVEL5    , STR_TR1_LEVEL5    , TRACK_TR1_WIND      , 3 ),
+-    //LEVEL_INFO( LEVEL6    , STR_TR1_LEVEL6    , TRACK_TR1_WIND      , 3 ),
+-    //LEVEL_INFO( LEVEL7A   , STR_TR1_LEVEL7A   , TRACK_TR1_CISTERN   , 3 ),
+-    //LEVEL_INFO( LEVEL7B   , STR_TR1_LEVEL7B   , TRACK_TR1_CISTERN   , 2 ),
+-    //LEVEL_INFO( CUT2      , STR_EMPTY         , TRACK_TR1_CUT_2     , 0 ),
+-    //LEVEL_INFO( LEVEL8A   , STR_TR1_LEVEL8A   , TRACK_TR1_WIND      , 3 ),
+-    //LEVEL_INFO( LEVEL8B   , STR_TR1_LEVEL8B   , TRACK_TR1_WIND      , 3 ),
+-    //LEVEL_INFO( LEVEL8C   , STR_TR1_LEVEL8C   , TRACK_TR1_WIND      , 1 ),
+-    //LEVEL_INFO( LEVEL10A  , STR_TR1_LEVEL10A  , TRACK_TR1_CISTERN   , 3 ),
+-    //LEVEL_INFO( CUT3      , STR_EMPTY         , TRACK_TR1_CUT_3     , 0 ),
+-    //LEVEL_INFO( LEVEL10B  , STR_TR1_LEVEL10B  , TRACK_TR1_PYRAMID   , 3 ),
+-    //LEVEL_INFO( CUT4      , STR_EMPTY         , TRACK_TR1_CUT_4     , 0 ),
+-    //LEVEL_INFO( LEVEL10C  , STR_TR1_LEVEL10C  , TRACK_TR1_PYRAMID   , 3 ),
+-    //LEVEL_INFO( EGYPT     , STR_TR1_EGYPT     , TRACK_TR1_WIND      , 3 ),
+-    //LEVEL_INFO( CAT       , STR_TR1_CAT       , TRACK_TR1_WIND      , 4 ),
+-    //LEVEL_INFO( END       , STR_TR1_END       , TRACK_TR1_WIND      , 2 )
++    LEVEL_INFO( LEVEL3A   , STR_TR1_LEVEL3A   , TRACK_TR1_CAVES     , 5 ),
++    LEVEL_INFO( LEVEL3B   , STR_TR1_LEVEL3B   , TRACK_TR1_CAVES     , 3 ),
++    LEVEL_INFO( CUT1      , STR_EMPTY         , TRACK_TR1_CUT_1     , 0 ),
++    LEVEL_INFO( LEVEL4    , STR_TR1_LEVEL4    , TRACK_TR1_WIND      , 4 ),
++    LEVEL_INFO( LEVEL5    , STR_TR1_LEVEL5    , TRACK_TR1_WIND      , 3 ),
++    LEVEL_INFO( LEVEL6    , STR_TR1_LEVEL6    , TRACK_TR1_WIND      , 3 ),
++    LEVEL_INFO( LEVEL7A   , STR_TR1_LEVEL7A   , TRACK_TR1_CISTERN   , 3 ),
++    LEVEL_INFO( LEVEL7B   , STR_TR1_LEVEL7B   , TRACK_TR1_CISTERN   , 2 ),
++    LEVEL_INFO( CUT2      , STR_EMPTY         , TRACK_TR1_CUT_2     , 0 ),
++    LEVEL_INFO( LEVEL8A   , STR_TR1_LEVEL8A   , TRACK_TR1_WIND      , 3 ),
++    LEVEL_INFO( LEVEL8B   , STR_TR1_LEVEL8B   , TRACK_TR1_WIND      , 3 ),
++    LEVEL_INFO( LEVEL8C   , STR_TR1_LEVEL8C   , TRACK_TR1_WIND      , 1 ),
++    LEVEL_INFO( LEVEL10A  , STR_TR1_LEVEL10A  , TRACK_TR1_CISTERN   , 3 ),
++    LEVEL_INFO( CUT3      , STR_EMPTY         , TRACK_TR1_CUT_3     , 0 ),
++    LEVEL_INFO( LEVEL10B  , STR_TR1_LEVEL10B  , TRACK_TR1_PYRAMID   , 3 ),
++    LEVEL_INFO( CUT4      , STR_EMPTY         , TRACK_TR1_CUT_4     , 0 ),
++    LEVEL_INFO( LEVEL10C  , STR_TR1_LEVEL10C  , TRACK_TR1_PYRAMID   , 3 ),
++    LEVEL_INFO( EGYPT     , STR_TR1_EGYPT     , TRACK_TR1_WIND      , 3 ),
++    LEVEL_INFO( CAT       , STR_TR1_CAT       , TRACK_TR1_WIND      , 4 ),
++    LEVEL_INFO( END       , STR_TR1_END       , TRACK_TR1_WIND      , 2 ),
++    LEVEL_INFO( END2      , STR_TR1_END2      , TRACK_TR1_WIND      , 1 ),
++    /* LVL_LOAD — zero-initialized sentinel */
+ };
+ 
+ #ifdef PROFILING
+--- a/src/fixed/game.h	2026-08-16 04:23:31
++++ b/src/fixed/game.h	2026-08-15 15:08:23
+@@ -14,11 +14,14 @@
+ 
+ void nextLevel(LevelID next)
+ {
+-    if ((next == LVL_TR1_3A) && (inventory.state == INV_STATE_NONE)) // alpha version
++#ifdef __GBA__
++    /* Upstream GBA demo ends after LEVEL2. */
++    if ((next == LVL_TR1_3A) && (inventory.state == INV_STATE_NONE))
+     {
+         inventory.open(players[0], INV_PAGE_END);
+         return;
+     }
++#endif
+     gNextLevel = next;
+ }
+ 
+--- a/src/fixed/lara.h	2026-08-16 04:23:31
++++ b/src/fixed/lara.h	2026-08-15 13:24:59
+@@ -2745,7 +2745,7 @@
+         if (keys & IK_X) input |= IN_WALK;
+         if (keys & IK_Y) input |= IN_UP | IN_DOWN;
+         if (keys & IK_Z) input |= IN_LOOK;
+-    #elif defined(__GBA__) || defined(__GBA_WIN__)
++    #elif defined(__GBA__) || defined(__GBA_WIN__) || defined(__GNW__)
+         int32 ikA, ikB;
+ 
+         if (gSettings.controls_swap) {
+--- a/src/fixed/inventory.h	2026-08-16 04:23:31
++++ b/src/fixed/inventory.h	2026-08-15 15:13:12
+@@ -1247,8 +1247,22 @@
+             {
+                 if (passportPage == PASSPORT_PAGE_LOAD_GAME)
+                 {
++#if defined(__GNW__)
++                    /* Full campaign + Unfinished Business (skip cuts / title / gym). */
++                    for (int32 id = (int32)LVL_TR1_1; id <= (int32)LVL_TR1_END2; id++)
++                    {
++                        if (id == (int32)LVL_TR1_CUT_1 || id == (int32)LVL_TR1_CUT_2 ||
++                            id == (int32)LVL_TR1_CUT_3 || id == (int32)LVL_TR1_CUT_4)
++                            continue;
++                        if (!gLevelInfo[id].data)
++                            continue;
++                        OPTION_BTN(gLevelInfo[id].title, id);
++                    }
++#else
++                    /* Upstream GBA demo ships LEVEL1/LEVEL2 only. */
+                     OPTION_BTN(STR_TR1_LEVEL1, LVL_TR1_1);
+                     OPTION_BTN(STR_TR1_LEVEL2, LVL_TR1_2);
++#endif
+                     if (osCheckSave())
+                     {
+                         OPTION_SPACE();
+@@ -1304,8 +1318,23 @@
+         if (optionsCount == 0)
+             return;
+ 
++        int32 maxRows = (FRAME_HEIGHT - 28) / 18;
++        if (maxRows < 1)
++            maxRows = 1;
++
++        int32 first = 0;
++        int32 visible = optionsCount;
++        if (optionsCount > maxRows) {
++            visible = maxRows;
++            first = optionIndex - maxRows / 2;
++            if (first < 0)
++                first = 0;
++            if (first > optionsCount - maxRows)
++                first = optionsCount - maxRows;
++        }
++
+         int32 w = optionsWidth;
+-        int32 h = optionsHeight;
++        int32 h = visible * 18 + 4;
+         int32 y = (FRAME_HEIGHT - h) / 2 - 12;
+ 
+         renderFill((FRAME_WIDTH - w) / 2 + 1, y + 1, w - 2, h - 2, 25, 2);
+@@ -1315,7 +1344,7 @@
+         h = 18;
+         y += 2;
+ 
+-        for (int32 i = 0; i < optionsCount; i++)
++        for (int32 i = first; i < first + visible; i++)
+         {
+             const Option &opt = options[i];
+ 
+--- a/src/fixed/enemy.h	2026-08-16 04:23:31
++++ b/src/fixed/enemy.h	2026-08-16 04:23:20
+@@ -1194,8 +1194,145 @@
+ 
+ struct Crocodile : Enemy
+ {
++    enum {
++        HIT_MASK = 0x000003FC,
++
++        DIST_BITE = 435,
++        DIST_TURN = 1024 * 3,
++        DAMAGE = 25,
++
++        ANIM_DEATH_LAND = 11,
++        ANIM_DEATH_WATER = 4
++    };
++
++    enum {
++        STATE_NONE,
++        STATE_STOP,
++        STATE_RUN,
++        STATE_WALK,
++        STATE_TURN,
++        STATE_BITE,
++        STATE_UNUSED,
++        STATE_DEATH
++    };
++
++    enum {
++        STATE_WATER_SWIM = 1,
++        STATE_WATER_BITE,
++        STATE_WATER_DEATH
++    };
++
+     Crocodile(Room* room) : Enemy(room, 20, 341, 600, AGGRESSION_LVL_2) {}
++
++    virtual void hit(int32 damage, const vec3i &point, int32 soundId)
++    {
++        Enemy::hit(damage, point, 0);
++
++        if (health <= 0) {
++            int32 deathAnim = (type == ITEM_CROCODILE_WATER) ? ANIM_DEATH_WATER : ANIM_DEATH_LAND;
++            animSet(level.models[type].animIndex + deathAnim, true);
++        }
++    }
++
++    virtual int32 updateState()
++    {
++        if (health <= 0)
++            return goalState;
++
++        if (type == ITEM_CROCODILE_WATER)
++        {
++            switch (state)
++            {
++                case STATE_WATER_SWIM:
++                {
++                    extraE->maxTurn = ENEMY_TURN_5;
++                    if (tinfo.front && hitMask)
++                        return STATE_WATER_BITE;
++                    break;
++                }
++
++                case STATE_WATER_BITE:
++                {
++                    if (hitMask) {
++                        if (!nextState) {
++                            bite(DAMAGE, _vec3i(5, -21, 467), 9);
++                            nextState = STATE_WATER_SWIM;
++                        }
++                        return goalState;
++                    }
++                    return STATE_WATER_SWIM;
++                }
++            }
++            return goalState;
++        }
++
++        switch (state)
++        {
++            case STATE_STOP:
++            {
++                if (tinfo.canAttack && tinfo.dist < DIST_BITE)
++                    return STATE_BITE;
++                switch (mood)
++                {
++                    case MOOD_ESCAPE: return STATE_RUN;
++                    case MOOD_ATTACK: return (tinfo.front || tinfo.dist < DIST_TURN) ? STATE_RUN : STATE_TURN;
++                    case MOOD_STALK:  return STATE_WALK;
++                    default: break;
++                }
++                break;
++            }
+ 
++            case STATE_RUN:
++            {
++                extraE->maxTurn = ENEMY_TURN_5;
++                if (tinfo.front && (hitMask & HIT_MASK))
++                    return STATE_STOP;
++                switch (mood)
++                {
++                    case MOOD_SLEEP: return STATE_STOP;
++                    case MOOD_STALK: return STATE_WALK;
++                    case MOOD_ATTACK:
++                        if (tinfo.dist > DIST_TURN && !tinfo.front)
++                            return STATE_STOP;
++                        break;
++                    default: break;
++                }
++                break;
++            }
++
++            case STATE_WALK:
++            {
++                extraE->maxTurn = ENEMY_TURN_2;
++                if (tinfo.front && (hitMask & HIT_MASK))
++                    return STATE_STOP;
++                if (mood == MOOD_SLEEP)
++                    return STATE_STOP;
++                if (mood == MOOD_ATTACK || mood == MOOD_ESCAPE)
++                    return STATE_RUN;
++                break;
++            }
++
++            case STATE_TURN:
++            {
++                extraE->maxTurn = ENEMY_TURN_5;
++                if (tinfo.front)
++                    return STATE_WALK;
++                break;
++            }
++
++            case STATE_BITE:
++            {
++                if (!nextState) {
++                    bite(DAMAGE, _vec3i(5, -21, 467), 9);
++                    nextState = STATE_STOP;
++                }
++                break;
++            }
++        }
++
++        return goalState;
++    }
++
+     virtual void initExtra()
+     {
+         if (type == ITEM_CROCODILE_LAND) {
+@@ -1204,6 +1341,7 @@
+         } else {
+             extraE->nav.stepHeight = 20 * 1024;
+             extraE->nav.dropHeight = -20 * 1024;
++            extraE->nav.vSpeed = 16;
+         }
+     }
+ };
+@@ -1211,6 +1349,28 @@
+ 
+ struct Lion : Enemy
+ {
++    enum {
++        HIT_MASK = 0x380066,
++
++        DIST_ATTACK = 1024,
++        DAMAGE_ATTACK = 150,
++        DAMAGE_BITE = 250,
++
++        ANIM_DEATH_LION = 7,
++        ANIM_DEATH_PUMA = 4
++    };
++
++    enum {
++        STATE_NONE,
++        STATE_STOP,
++        STATE_WALK,
++        STATE_RUN,
++        STATE_ATTACK,
++        STATE_DEATH,
++        STATE_ROAR,
++        STATE_BITE
++    };
++
+     Lion(Room* room) : Enemy(room, 1, 341, 400, AGGRESSION_LVL_2)
+     {
+         switch (type)
+@@ -1224,8 +1384,80 @@
+     virtual void hit(int32 damage, const vec3i &point, int32 soundId)
+     {
+         Enemy::hit(damage, point, (type == ITEM_PUMA) ? 0 : SND_HIT_LION);
++
++        if (health <= 0) {
++            int32 deathAnim = (type == ITEM_PUMA) ? ANIM_DEATH_PUMA : ANIM_DEATH_LION;
++            animSet(level.models[type].animIndex + deathAnim + RAND_LOGIC(2), true);
++        }
+     }
+ 
++    virtual int32 updateState()
++    {
++        if (health <= 0)
++            return goalState;
++
++        switch (state)
++        {
++            case STATE_STOP:
++            {
++                if (nextState)
++                    return nextState;
++                if (mood == MOOD_SLEEP)
++                    return STATE_WALK;
++                if (tinfo.front && (hitMask & HIT_MASK))
++                    return STATE_BITE;
++                if (tinfo.front && tinfo.dist < DIST_ATTACK)
++                    return STATE_ATTACK;
++                return STATE_RUN;
++            }
++
++            case STATE_WALK:
++            {
++                extraE->maxTurn = ENEMY_TURN_2;
++                if (mood != MOOD_SLEEP)
++                    return STATE_STOP;
++                if (rand_logic() < 0x20) {
++                    nextState = STATE_ROAR;
++                    return STATE_STOP;
++                }
++                break;
++            }
++
++            case STATE_RUN:
++            {
++                extraE->maxTurn = ENEMY_TURN_5;
++                if ((mood == MOOD_SLEEP) ||
++                    (tinfo.front && tinfo.dist < DIST_ATTACK) ||
++                    (tinfo.front && (hitMask & HIT_MASK)))
++                    return STATE_STOP;
++                if (mood == MOOD_ESCAPE && rand_logic() < 0x20) {
++                    nextState = STATE_ROAR;
++                    return STATE_STOP;
++                }
++                break;
++            }
++
++            case STATE_ATTACK:
++            case STATE_BITE:
++            {
++                if (!nextState && (hitMask & HIT_MASK)) {
++                    bite((state == STATE_ATTACK) ? DAMAGE_ATTACK : DAMAGE_BITE,
++                         _vec3i(-2, -10, 132), 21);
++                    nextState = STATE_STOP;
++                }
++                break;
++            }
++
++            case STATE_ROAR:
++            {
++                extraE->maxTurn = ENEMY_TURN_2;
++                break;
++            }
++        }
++
++        return goalState;
++    }
++
+     virtual void initExtra()
+     {
+         extraE->nav.stepHeight = 256;
+@@ -1248,11 +1480,120 @@
+ 
+ struct Rat : Enemy
+ {
++    enum {
++        HIT_MASK = 0x0300018F,
++
++        DIST_BITE = 341,
++        DIST_ATTACK = 1536,
++        DAMAGE = 20,
++
++        ANIM_DEATH_LAND = 8,
++        ANIM_DEATH_WATER = 2
++    };
++
++    enum {
++        /* Land (ITEM_RAT_LAND) */
++        STATE_NONE,
++        STATE_STOP,
++        STATE_ATTACK,
++        STATE_RUN,
++        STATE_BITE,
++        STATE_DEATH,
++        STATE_WAIT
++    };
++
++    enum {
++        /* Water (ITEM_RAT_WATER) — same numeric IDs as TR anim set */
++        STATE_WATER_SWIM = 1,
++        STATE_WATER_BITE,
++        STATE_WATER_DEATH
++    };
++
+     Rat(Room* room) : Enemy(room, 5, 204, 200, AGGRESSION_LVL_2) {}
+ 
+     virtual void hit(int32 damage, const vec3i &point, int32 soundId)
+     {
+         Enemy::hit(damage, point, SND_HIT_RAT);
++
++        if (health <= 0) {
++            int32 deathAnim = (type == ITEM_RAT_WATER) ? ANIM_DEATH_WATER : ANIM_DEATH_LAND;
++            animSet(level.models[type].animIndex + deathAnim, true);
++        }
++    }
++
++    virtual int32 updateState()
++    {
++        if (health <= 0)
++            return goalState;
++
++        if (type == ITEM_RAT_WATER)
++        {
++            switch (state)
++            {
++                case STATE_WATER_SWIM:
++                {
++                    extraE->maxTurn = ENEMY_TURN_5;
++                    if (tinfo.front && (hitMask & HIT_MASK))
++                        return STATE_WATER_BITE;
++                    break;
++                }
++
++                case STATE_WATER_BITE:
++                {
++                    if (!nextState && tinfo.front && (hitMask & HIT_MASK)) {
++                        bite(DAMAGE, _vec3i(0, -11, 108), 3);
++                        nextState = STATE_WATER_SWIM;
++                    }
++                    return STATE_NONE;
++                }
++            }
++            return goalState;
++        }
++
++        switch (state)
++        {
++            case STATE_STOP:
++            {
++                if (nextState)
++                    return nextState;
++                if (tinfo.canAttack && tinfo.dist < DIST_BITE)
++                    return STATE_BITE;
++                return STATE_RUN;
++            }
++
++            case STATE_RUN:
++            {
++                extraE->maxTurn = ENEMY_TURN_5;
++                if (tinfo.front && (hitMask & HIT_MASK))
++                    return STATE_STOP;
++                if (tinfo.canAttack && tinfo.dist < DIST_ATTACK)
++                    return STATE_ATTACK;
++                if (tinfo.front && rand_logic() < 0x180) {
++                    nextState = STATE_WAIT;
++                    return STATE_STOP;
++                }
++                break;
++            }
++
++            case STATE_ATTACK:
++            case STATE_BITE:
++            {
++                if (!nextState && tinfo.front && (hitMask & HIT_MASK)) {
++                    bite(DAMAGE, _vec3i(0, -11, 108), 3);
++                    nextState = (state == STATE_ATTACK) ? STATE_RUN : STATE_STOP;
++                }
++                break;
++            }
++
++            case STATE_WAIT:
++            {
++                if (mood == MOOD_SLEEP || rand_logic() < 0x180)
++                    return STATE_STOP;
++                break;
++            }
++        }
++
++        return goalState;
+     }
+ };
+ 
+--- a/src/platform/gba/render.iwram.cpp	2026-08-16 04:23:32
++++ b/src/platform/gba/render.iwram.cpp	2026-08-15 13:38:34
+@@ -1,4 +1,4 @@
+-#include "common.h"
++#include "ol/common.h"
+ 
+ struct Vertex
+ {
+@@ -33,6 +33,9 @@
+     uint16 fb[FRAME_WIDTH * FRAME_HEIGHT];
+ #elif defined(__DOS__)
+     uint16 fb[FRAME_WIDTH * FRAME_HEIGHT];
++#elif defined(__GNW__)
++    /* MODE4: two palette indices per uint16 (same footprint as GBA VRAM page). */
++    uint16 fb[(FRAME_WIDTH * FRAME_HEIGHT) / 2];
+ #endif
+ 
+ enum FaceType {
+@@ -198,7 +201,9 @@
+         int32 fog = z - FOG_MIN;
+         if (fog > 0)
+         {
+-            vg += fog >> (FOG_SHIFT + 3);
++            /* Match transformRoom_asm: fog contribution is >> 7 in world units
++             * (asm: z already OT-shifted, then lsr #(3 + FOG_SHIFT_asm - OT_SHIFT)). */
++            vg += fog >> 7;
+             if (vg > 31)
+             {
+                 vg = 31;
+@@ -226,7 +231,9 @@
+         res->x = x;
+         res->y = y;
+         res->z = z;
+-        res->g = vg >> 8;
++        /* vg is already 0..31 (see lsr #27 in transformRoom_asm). Do NOT >> 8 —
++         * that zeroed shade/fog on every non-ASM platform (GBA uses the asm path). */
++        res->g = vg;
+         res->clip = clip;
+     }
+ }
+@@ -672,7 +679,7 @@
+                     if (top->v.y > ptr[2].v.y) top = ptr + 2;
+                     if (!(flags & FACE_TRIANGLE))
+                     {
+-                        if (top->v.y > v[3].v.y) top = ptr + 3;
++                        if (top->v.y > ptr[3].v.y) top = ptr + 3;
+                     }
+                     rasterize(flags, top);
+                 }
+--- a/src/platform/gba/rasterizer.h	2026-08-16 04:23:32
++++ b/src/platform/gba/rasterizer.h	2026-08-15 12:46:38
+@@ -1,7 +1,13 @@
+ #ifndef H_RASTERIZER_MODE4
+ #define H_RASTERIZER_MODE4
+ 
++#if defined(__GNW__)
++#ifndef H_COMMON
++#include "ol/common.h"
++#endif
++#else
+ #include "common.h"
++#endif
+ 
+ extern uint8 gLightmap[256 * 32];
+ extern const uint8* gTile;

@@ -70,9 +70,9 @@ pad_logo=assets/pad.bmp,header_logo=assets/header_cd.bmp,cheat_ext=pceplus \\
         --segment itcm:__ITCM_CORE_START__:__CORE_ITCM_CODE_END__:__CORE_ITCM_BSS_END__:build/pce_core_itcm.bin \\
         --out ../pce.bin
 
-Extra ITCM segments are auto-detected from ELF symbols
-(__CORE_ITCM_*, section .core_itcm) when present; pass
---no-auto-segments to disable. Explicit --segment still wins for a
+Extra ITCM / RAM_UC segments are auto-detected from ELF symbols
+(__CORE_ITCM_*, .core_itcm; __CORE_RAM_UC_*, .core_ram_uc) when present;
+pass --no-auto-segments to disable. Explicit --segment still wins for a
 given region. AHB/DTCM are not valid load targets (firmware heap /
 dtcm bump) — pack_core rejects them.
 
@@ -100,7 +100,7 @@ GNW_CORE_META_VERSION = 3
 GNW_CORE_MAX_SEGMENTS = 4
 GNW_CORE_MAX_SYSTEMS = 4
 
-REGION_NAME_TO_ID = {"ram_emu": 0, "itcm": 1}
+REGION_NAME_TO_ID = {"ram_emu": 0, "itcm": 1, "ram_uc": 2}
 PARSE_NAME_TO_ID = {"rom": 0, "cdrom": 1}
 
 # Must mirror gnw_core_segment_t exactly (Core/Inc/retro-go/gnw_core_meta.h):
@@ -127,16 +127,29 @@ CORE_NAME_MAX = 23  # stored as char[24] including NUL
 
 
 def parse_version(spec):
-    """Parse 'X.Y.Z' (optional leading 'v') into (major, minor, patch),
-    each 0..255. Used for gnw_core_meta_t.version_*. """
+    """Parse a version string into (major, minor, patch), each 0..255.
+
+    Accepts:
+      - plain X.Y.Z (optional leading 'v')
+      - git describe output: vX.Y.Z, vX.Y.Z-dirty, vX.Y.Z-N-gHEX[-dirty]
+      - NOTAG / empty → (0, 0, 0)
+
+    Only the leading X.Y.Z is stored in gnw_core_meta_t (3 bytes); the
+    full describe string is for build logs / Makefile only.
+    """
     s = spec.strip()
+    if not s or s.upper() == "NOTAG":
+        return 0, 0, 0
     if s[:1] in ("v", "V"):
         s = s[1:]
-    parts = s.split(".")
-    if len(parts) != 3:
-        sys.exit(f"error: --version expects X.Y.Z, got {spec!r}")
+    m = re.match(r"^(\d+)\.(\d+)\.(\d+)", s)
+    if not m:
+        sys.exit(
+            f"error: --version expects X.Y.Z or git describe (vX.Y.Z…), "
+            f"or NOTAG; got {spec!r}"
+        )
     try:
-        major, minor, patch = (int(p) for p in parts)
+        major, minor, patch = (int(m.group(i)) for i in (1, 2, 3))
     except ValueError:
         sys.exit(f"error: --version components must be integers, got {spec!r}")
     for name, val in (("major", major), ("minor", minor), ("patch", patch)):
@@ -413,6 +426,13 @@ AUTO_EXTRA_SEGMENTS = (
         "bss_end": "__CORE_ITCM_BSS_END__",
         "section": ".core_itcm",
     },
+    {
+        "region": "ram_uc",
+        "start": "__RAM_UC_CORE_START__",
+        "code_end": "__CORE_RAM_UC_CODE_END__",
+        "bss_end": "__CORE_RAM_UC_BSS_END__",
+        "section": ".core_ram_uc",
+    },
 )
 
 
@@ -530,8 +550,9 @@ def main():
 
     ap.add_argument("--flags", type=lambda s: int(s, 0), default=0)
     ap.add_argument("--version", default="1.0.0",
-                     help="core semantic version X.Y.Z (optional leading 'v'; "
-                          "stored as 3 bytes in gnw_core_meta_t, default: %(default)s)")
+                     help="X.Y.Z, git describe (vX.Y.Z…), or NOTAG → 0.0.0 "
+                          "(optional leading 'v'; stored as 3 bytes in "
+                          "gnw_core_meta_t, default: %(default)s)")
     ap.add_argument("--core-name", default=None,
                      help="short core pack name stored in gnw_core_meta_t "
                           f"(max {CORE_NAME_MAX} chars). Default: --out stem "

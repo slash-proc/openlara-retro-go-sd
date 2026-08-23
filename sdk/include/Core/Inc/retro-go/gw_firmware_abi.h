@@ -87,7 +87,7 @@ typedef enum {
 typedef enum {
     GW_MEM_OP_ALLOC     = 0,  /* calloc from pool; count=1 → malloc(size)+zero */
     GW_MEM_OP_INIT      = 1,  /* reset pool bump (ITC/RAM/DTCM only) */
-    GW_MEM_OP_FREE_SIZE = 2,  /* free bytes in pool (RAM only today) */
+    GW_MEM_OP_FREE_SIZE = 2,  /* largest allocatable bytes in this pool */
 } gw_mem_op_t;
 
 typedef struct {
@@ -284,7 +284,9 @@ typedef struct {
      * gw_core_bridge.c re-exposes the historical per-pool names as thin
      * wrappers so core source is unaffected.
      *
-     * Returns: ALLOC → (uintptr_t)ptr; INIT → 0; FREE_SIZE → free bytes.
+     * Returns: ALLOC → (uintptr_t)ptr; INIT → 0; FREE_SIZE → largest
+     * allocatable bytes in that pool (bump remaining, or AHB wilderness /
+     * largest free chunk).
      * ================================================================ */
     uintptr_t (*mem_ctl)(gw_mem_op_t op, gw_mem_pool_t pool, size_t count, size_t size);
 
@@ -584,6 +586,26 @@ typedef struct {
     int      (*odroid_overlay_get_font_width)(void);
     void     (*odroid_overlay_draw_fill_rect)(int x, int y, int width, int height,
                                               uint16_t color);
+
+    /* ================================================================
+     * v2 append: DMA2D R2M solid RGB565 fill for homebrews/cores.
+     * Same HAL handle as dma2d_m2m_rgb565_start (re-Init every start).
+     * color = RGB565; dst_offset = output line offset in pixels (OOR),
+     * i.e. pitch_in_pixels - width (0 for a tightly packed rectangle).
+     * Start returns 0 on success; poll via dma2d_poll().
+     * ================================================================ */
+    uint32_t (*dma2d_r2m_rgb565_start)(uint32_t color, uint32_t dst,
+                                       uint16_t width, uint16_t height,
+                                       uint16_t dst_offset);
+
+    /* ================================================================
+     * v2 append: DMA2D M2M RGB565 with line offsets (pitch - width).
+     * src_offset / dst_offset are in pixels (FGOR / OOR). The legacy
+     * dma2d_m2m_rgb565_start is equivalent to offsets of 0.
+     * ================================================================ */
+    uint32_t (*dma2d_m2m_rgb565_start_ex)(uint32_t src, uint32_t dst,
+                                          uint16_t width, uint16_t height,
+                                          uint16_t src_offset, uint16_t dst_offset);
 
 } gw_firmware_abi_t;
 

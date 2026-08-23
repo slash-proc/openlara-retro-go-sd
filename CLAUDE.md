@@ -109,7 +109,7 @@ core**.
 | **AXI SRAM (RAM_EMU)**     | after FB (`__RAM_EMU_START_`_) | **~724 KiB** (`1024 KiB − 300 KiB`)       | Cached AXI                                    | Core **link** image (`.text` / `.rodata` / `.data` / `.bss`) + `ram_malloc` / `ram_calloc` bump from `ram_start`                                                                                                                                                                                                                                  | Default home for code, BSS, WRAM, VRAM, frame staging, most emulator state  |
 
 
-Exact constants: `sdk/ld/gnw_ram_emu.ld`, `gnw_itcm_core.ld`, `gnw_ahb_core.ld`.
+Exact constants: `sdk/ld/gnw_ram_emu.ld`, `gnw_itcm_core.ld`, `gnw_ram_uc_core.ld`.
 
 ### Pool APIs (`gw_malloc.h` → `mem_ctl`)
 

@@ -1,0 +1,135 @@
+# Host (Linux/macOS) SDL build — included from the project Makefile.
+#
+#   make host                     # SDL2, same PROJECT_KIND as device build
+#   make host HOST_SDL=3          # same with SDL3
+#   make host PROJECT_KIND=homebrew
+#   ./OpenLara_host [data_dir]    # PKD folder (default: ./data, ., OPENLARA_DATA)
+#
+# Requires: pkg-config + libsdl2-dev / sdl2 (or sdl3).
+
+HOST_SDL   ?= 2
+HOST_SCALE ?= 2
+# Native compiler (do not reuse arm-none-eabi-gcc from sdk/Makefile).
+HOST_CC    ?= cc
+HOST_CXX   ?= c++
+
+HOST_BUILD_DIR := build/host/$(PROJECT_KIND)_sdl$(HOST_SDL)
+
+ifeq ($(PROJECT_KIND),homebrew)
+ifneq ($(HOST_BIN),)
+# project Makefile may override HOST_BIN (e.g. OpenLara_host)
+else
+HOST_BIN := ExampleHB_host
+endif
+else
+HOST_BIN := $(CORE_NAME)_host
+endif
+
+ifeq ($(HOST_SDL),3)
+HOST_SDL_PC := sdl3
+else ifeq ($(HOST_SDL),2)
+HOST_SDL_PC := sdl2
+else
+$(error HOST_SDL must be 2 or 3 (got '$(HOST_SDL)'))
+endif
+
+HOST_PKG_CFLAGS := $(shell pkg-config --cflags $(HOST_SDL_PC) 2>/dev/null)
+HOST_PKG_LIBS   := $(shell pkg-config --libs $(HOST_SDL_PC) 2>/dev/null)
+# macOS sdl2.pc pulls -lSDL2main which wants SDL_main; we provide main() ourselves.
+HOST_PKG_LIBS   := $(filter-out -lSDL2main,$(HOST_PKG_LIBS))
+ifeq ($(HOST_PKG_LIBS),)
+# Homebrew SDL2 (Apple Silicon / Intel) when pkg-config is missing or wrong.
+HOST_BREW_PREFIX := $(shell brew --prefix sdl2 2>/dev/null)
+ifneq ($(HOST_BREW_PREFIX),)
+HOST_PKG_CFLAGS := -I$(HOST_BREW_PREFIX)/include/SDL2 -D_THREAD_SAFE
+HOST_PKG_LIBS   := -L$(HOST_BREW_PREFIX)/lib -lSDL2
+else ifneq ($(wildcard /opt/homebrew/include/SDL2/SDL.h),)
+HOST_PKG_CFLAGS := -I/opt/homebrew/include/SDL2 -D_THREAD_SAFE
+HOST_PKG_LIBS   := -L/opt/homebrew/lib -lSDL2
+else ifneq ($(wildcard /usr/local/include/SDL2/SDL.h),)
+HOST_PKG_CFLAGS := -I/usr/local/include/SDL2 -D_THREAD_SAFE
+HOST_PKG_LIBS   := -L/usr/local/lib -lSDL2
+else
+$(warning pkg-config $(HOST_SDL_PC) not found — host link may fail. Install SDL$(HOST_SDL) devel package.)
+endif
+endif
+
+HOST_INC_ROOT := $(GNW_CORE_SDK)/include
+
+HOST_DEFS := \
+	-DHOST_BUILD=1 \
+	-DHOST_SDL=$(HOST_SDL) \
+	-DHOST_SCALE=$(HOST_SCALE) \
+	-DSDL_MAIN_HANDLED=1 \
+	-DIS_LITTLE_ENDIAN \
+	-DGNW_DISABLE_COMPRESSION \
+	$(CORE_C_DEFS)
+
+HOST_INCLUDES := \
+	-Ihost \
+	-Ihost/stubs \
+	-I$(GNW_CORE_SDK)/src \
+	-I$(HOST_INC_ROOT)/Core/Inc \
+	-I$(HOST_INC_ROOT)/Core/Inc/retro-go \
+	-I$(HOST_INC_ROOT)/Core/Inc/porting \
+	-I$(HOST_INC_ROOT)/Core/Src/porting/lib \
+	-I$(HOST_INC_ROOT)/Core/Src/porting/lib/FatFs \
+	-I$(HOST_INC_ROOT)/retro-go-stm32/components/odroid \
+	$(HOST_PKG_CFLAGS) \
+	$(HOST_CXX_EXTRA_INCLUDES)
+
+HOST_CFLAGS := -O2 -g -Wall -Wextra -std=c11 \
+	-include host/stubs/config.h \
+	$(HOST_DEFS) $(HOST_INCLUDES)
+
+HOST_CXXFLAGS := -O2 -g -Wall -Wextra -std=c++11 \
+	-fno-exceptions -fno-rtti -fno-threadsafe-statics -fno-use-cxa-atexit \
+	-include host/stubs/config.h \
+	$(HOST_DEFS) $(HOST_INCLUDES)
+
+# Device-only video stack is omitted on host; projects set HOST_C_SOURCES / HOST_CXX_SOURCES.
+ifeq ($(HOST_C_SOURCES),)
+HOST_C_SRCS := $(CORE_C_SOURCES)
+else
+HOST_C_SRCS := $(HOST_C_SOURCES)
+endif
+
+HOST_HOST_SRCS := \
+	host/host_main.c \
+	host/host_platform.c \
+	host/host_emu.c \
+	host/host_i18n.c
+
+HOST_C_OBJS := $(addprefix $(HOST_BUILD_DIR)/,$(HOST_C_SRCS:.c=.o))
+HOST_CXX_OBJS := $(addprefix $(HOST_BUILD_DIR)/,$(HOST_CXX_SOURCES:.cpp=.o))
+HOST_HOST_OBJS := $(addprefix $(HOST_BUILD_DIR)/,$(HOST_HOST_SRCS:.c=.o))
+HOST_OBJS := $(HOST_C_OBJS) $(HOST_CXX_OBJS) $(HOST_HOST_OBJS)
+HOST_DEPS := $(HOST_OBJS:.o=.d)
+
+.PHONY: host host_clean
+
+host: $(HOST_BIN)
+	$(V)$(ECHO) "[ HOST ]" $(HOST_BIN) "(SDL$(HOST_SDL), PROJECT_KIND=$(PROJECT_KIND))"
+
+$(HOST_BIN): $(HOST_OBJS)
+	$(V)$(ECHO) [ LD HOST ] $@
+	$(V)$(HOST_CXX) -o $@ $(HOST_OBJS) $(HOST_PKG_LIBS) -lm
+
+# Explicit pattern under HOST_BUILD_DIR only (do not collide with sdk ARM rules).
+$(HOST_BUILD_DIR)/%.o: %.c
+	$(V)mkdir -p $(dir $@)
+	$(V)$(ECHO) [ CC HOST ] $<
+	$(V)$(HOST_CC) $(HOST_CFLAGS) -MMD -MP -MF"$(@:%.o=%.d)" -c $< -o $@
+
+$(HOST_BUILD_DIR)/%.o: %.cpp
+	$(V)mkdir -p $(dir $@)
+	$(V)$(ECHO) [ CXX HOST ] $<
+	$(V)$(HOST_CXX) $(HOST_CXXFLAGS) -MMD -MP -MF"$(@:%.o=%.d)" -c $< -o $@
+
+host_clean:
+	$(V)rm -rf build/host
+	$(V)rm -f $(CORE_NAME)_host ExampleHB_host OpenLara_host
+
+clean:: host_clean
+
+-include $(HOST_DEPS)

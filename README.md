@@ -1,167 +1,193 @@
-# Retro-Go SD Core / Homebrew Template
+# OpenLara for Game & Watch (Retro-Go SD)
 
-Standalone SDK and starter project for building **one** external emulator
-core **or** **one** GWHB homebrew for
-[Game & Watch Retro-Go SD](https://github.com/sylverb/game-and-watch-retro-go-sd).
+GWHB homebrew port of [XProger/OpenLara](https://github.com/XProger/OpenLara)
+**fixed-point** engine + GBA MODE4 software rasterizer (C path, no GBA ASM)
+for the STM32H7B0 Game & Watch with [Retro-Go SD](https://github.com/sylverb/game-and-watch-retro-go-sd).
 
-This repository is the project: clone or copy it, set `PROJECT_KIND`, customize
-`src/main.c` / pack metadata, and ship a single `.bin`. Do not put several
-emulators or homebrews in the same tree.
-
-Both kinds share the same freestanding Cortex-M7 build (linked into
-`RAM_EMU`, talking to the launcher **only** through `gw_firmware_abi_t`).
-They differ in packaging and SD layout:
-
-
-| | Dynamic core (`PROJECT_KIND=core`) | Homebrew (`PROJECT_KIND=homebrew`) |
-|--|-----------------------------------|-------------------------------------|
-| Packer | `sdk/tools/pack_core.py` (`CORE`) | `sdk/tools/pack_homebrew.py` (`GWHB`) |
-| SD path | `/cores/<name>.bin` | `/roms/homebrew/<name>.bin` |
-| Launcher | New system tab (dirname + extensions) | Homebrew tab |
-| Assets | Pad/header 1bpp logos (`src/assets/`) | Optional JPEG cover (≤186×100, ≤10 KiB) |
-| `src/main.c` | Loads the ROM given by the launcher | No ROM — `ACTIVE_FILE` is this `.bin` |
-
-Headers, bridge trampolines, linker scripts, and packers are vendored under
-`sdk/`. You do **not** need a firmware checkout to compile.
+Milestone 1: builds `OpenLara.bin`, boots on device, soft-rasters 240×160 and
+stretches to the 320×240 LCD (native 320×240 render is next). With `TITLE.PKD` on the SD card it runs `gameInit`; without
+it, shows a short “put PKD here” screen.
 
 ## Requirements
 
-**Local build**
+- `arm-none-eabi-gcc` (v10+, hard-float `fpv5-d16`) **or** Docker image
+  `sylverb/retro-go-sd-builder` (default tag `v1.5`)
+- Python 3 + Pillow (`pip install -r requirements.txt`) for the cover JPEG
+- OpenLara sources under `third_party/OpenLara` (see below)
 
-- `arm-none-eabi-gcc` (v10+, same family as the firmware; hard-float
-  `fpv5-d16` is mandatory — ABI calling convention must match)
-- GNU Make
-- Python 3 + Pillow (`pip install -r requirements.txt`) for packaging
-  logos / homebrew covers from PNG/BMP/JPEG
-
-**Docker build** (no host toolchain)
-
-- Docker
-- Image [`sylverb/retro-go-sd-builder`](https://hub.docker.com/r/sylverb/retro-go-sd-builder)
-  (same tag as the firmware repo, default `v1.5`)
-
-## Quick start
-
-Local (default = core):
+## Fetch OpenLara + apply GNW patch
 
 ```bash
-make
-# or: make PROJECT_KIND=homebrew
+./scripts/fetch_openlara.sh
 ```
 
-Docker:
+This sparse-clones `src/fixed` + `src/platform/gba` and applies
+`patches/0001-openlara-gnw.patch` (`__GNW__` platform block).
+
+Pinned commit is recorded in `third_party/OpenLara/UPSTREAM.txt`.
+
+## Build
 
 ```bash
+make                    # PROJECT_KIND=homebrew by default
+# or:
 make docker
-make docker PROJECT_KIND=homebrew
 ```
 
-Override the image tag if needed: `make docker RELEASE_VERSION=v1.5`.
+Output: `OpenLara.bin` → copy to the SD card as `/homebrews/OpenLara.bin`.
 
-Produces:
+### Desktop dev (macOS / Linux, no FMV)
 
-- **core:** `example.bin` → `/cores/example.bin`, test ROMs under `/roms/example/`
-- **homebrew:** `ExampleHB.bin` → `/roms/homebrew/ExampleHB.bin`
-  (optional override cover: `/covers/homebrew/ExampleHB.img`)
+Requires SDL2 (`brew install sdl2` on macOS):
 
-The skeleton draws a framebuffer with the ROM / file name, beeps a square
-wave while a gameplay button is held, and wires save/load state, screenshot,
-sleep wake-up, and SRAM hooks via `odroid_system_emu_init`. Replace the stubs
-in `src/main.c` with your emulator or game.
-
-Useful Docker targets:
-
-- `make docker` — build + pack in the local builder image
-- `make docker_pull` — refresh the image from Docker Hub
-- `make docker_shell` — interactive shell in the same mount
-
-## Create your own core
-
-1. Keep `PROJECT_KIND=core` (the default).
-2. Edit the top of `Makefile`: `CORE_NAME`, `CORE_ENTRY`, `CORE_C_SOURCES`,
-   and the `pack_core.py` metadata (`--system-name`, `--dirname`,
-   `--extensions`, …).
-3. Drop footer graphics in `src/assets/` and point `--pad-logo` / `--header-logo`
-   at PNG or BMP files. Dark/opaque pixels become the lit 1bpp bits.
-   Optional: `--logo-width` / `--logo-height` / `--logo-invert`.
-4. If the core supports cheat files on the SD card, set `--cheat-ext`
-   (`ggcodes`, `pceplus`, or `mcf`). Leave empty when unsupported.
-5. Implement the loop in `src/main.c` (entry is `app_main` by default).
-6. `make` → drop the `.bin` under `/cores/`.
-
-## Create your own homebrew
-
-1. Build with `PROJECT_KIND=homebrew`.
-2. Edit `Makefile`: `CORE_NAME`, pack `--name` / `--version` / `--cover` /
-   `--out`. You can drop the core-only pack recipe and `PROJECT_KIND_CORE`
-   branches once you no longer need them.
-3. Cover JPEG must decode ≤ **186×100** and be ≤ **10 KiB**. An on-disk
-   `/covers/homebrew/<stem>.img` **overrides** the embedded cover.
-4. Large assets that do not fit in RAM_EMU stay as **sibling files** under
-   `/roms/homebrew/` and are opened via the ABI.
-5. `make PROJECT_KIND=homebrew` → drop the `.bin` (and sidecars) under
-   `/roms/homebrew/`.
-
-Include order in `src/main.c`:
-
-```c
-#include "common.h"
-#include "odroid_system.h"
-/* … other firmware-style headers … */
-#include "gw_core_bridge.h"   /* last — rewrites ACTIVE_FILE / ram_start */
+```bash
+make host
+./OpenLara_host sd_assets/openlara/
+# or: OPENLARA_DATA=/path/to/pkds ./OpenLara_host
 ```
 
-Undefined references at link time usually mean a symbol is missing from
-`sdk/src/gw_core_bridge_redefine_syms.txt` and/or lacks a `core_*` trampoline
-in `sdk/src/gw_core_bridge.c`. If the symbol is not on the ABI yet, extend
-the **firmware** ABI first, then refresh this SDK (see below).
+PKDs are read from the path argument, `OPENLARA_DATA`, or `./data/` / `./openlara/`.
+Cutscenes are not played on host (device-only HW MJPEG player).
+
+## SD layout (levels)
+
+This homebrew needs **`.PKD`** levels (OpenLara GBA packed format), **not**
+raw `.PSX` / `.PHD` from the retail game.
+
+| You have | Use for this port? |
+|----------|--------------------|
+| `LEVEL1.PSX` (PlayStation dump) | No — wrong container |
+| `LEVEL1.PHD` (PC) | No — must be packed to PKD first |
+| `LEVEL1.PKD` (GBA OpenLara data) | Yes |
+
+Pre-built PKDs live in the upstream repo under
+[`src/platform/gba/data/`](https://github.com/XProger/OpenLara/tree/master/src/platform/gba/data).
+A copy for local testing is in `sd_assets/openlara/` after you fetch them
+(or copy from that GitHub path).
+
+```
+/homebrews/OpenLara.bin
+/homebrews/openlara/TITLE.PKD
+/homebrews/openlara/TITLE.SCR
+/homebrews/openlara/TRACKS.AD4
+/homebrews/openlara/GYM.PKD
+/homebrews/openlara/LEVEL1.PKD
+/homebrews/openlara/LEVEL2.PKD
+```
+
+(Also accepted: `/roms/homebrew/openlara/*` for older layouts.)
+
+PKDs are loaded into the **QSPI flash cache** (too large for RAM_EMU). `ROM_READ`
+keeps mutable texture tables in RAM so fixups do not write the flash mapping.
+`TRACKS.AD4` (~3 MiB) is **streamed from the SD** so it does not fight the PKD
+for the flash-cache slot; SFX live inside each PKD.
+
+### Cutscenes (optional FMV)
+
+When you run ``phd_to_pkd.py``, cutscenes are converted automatically if
+``FMV/*.RPL`` exists next to your ``DATA/`` folder (typical TR1 PC / GOG
+layout) and ``ffmpeg`` is installed:
+
+```bash
+python3 scripts/phd_to_pkd.py /path/to/TR1_PC -o sd_assets/openlara
+# → sd_assets/openlara/fmv/CAFE.AVI, SNOW.AVI, …
+```
+
+Copy the whole ``sd_assets/openlara/`` tree to ``/homebrews/openlara/`` on
+the SD card (including the ``fmv/`` subfolder). Missing clips are skipped at
+runtime. To convert FMV only:
+
+```bash
+python3 scripts/rpl_to_avi.py /path/to/FMV -o sd_assets/openlara/fmv --clips-only
+# or: ./scripts/rpl_to_avi.sh /path/to/FMV sd_assets/openlara/fmv
+# Must be MJPEG yuvj420p + mono MP3 @ 48 kHz (default ffmpeg MJPEG is often
+# yuvj444p and crashes the G&W JPEG decoder).
+```
+
+| Level enter | Clip |
+|-------------|------|
+| TITLE (1st boot) | CORE → CAFE |
+| GYM | MANSION |
+| LEVEL1 | SNOW |
+| LEVEL4 | LIFT |
+| LEVEL8A | VISION |
+| LEVEL10A | CANYON |
+| LEVEL10B | PYRAMID |
+| CUT4 | PRISON |
+| EGYPT | END |
+
+During playback: **A** skips the cutscene. **PAUSE/SET** opens the normal
+Retro-Go game menu (no video transport OSD).
+
+AVI files can live in either place:
+
+```
+/homebrews/openlara/CAFE.AVI
+/homebrews/openlara/fmv/CAFE.AVI
+```
+
+### Converting your own PSX/PHD later
+
+Retail **`.PSX` cannot be converted** today (`TR1_PSX.h` in the upstream packer
+is empty). You need Tomb Raider 1 **PC** levels (`.PHD`).
+
+```bash
+# Demo PKDs already published by OpenLara (TITLE/GYM/LEVEL1/LEVEL2 + TRACKS):
+python3 scripts/fetch_openlara_pkd.py
+
+# Full game from PC PHD files (builds a native Unix port of packer.exe):
+python3 scripts/phd_to_pkd.py /path/to/TR1_PC -o sd_assets/openlara
+# expects TR1_PC/DATA/TITLE.PHD, LEVEL1.PHD, …
+```
+
+Then copy `sd_assets/openlara/*` to `/homebrews/openlara/` on the SD card.
+### Controls (v1)
+
+| G&W | OpenLara |
+|-----|----------|
+| D-pad | Move |
+| A | **Action** (switches, grab, push/pull) / confirm |
+| B | Jump |
+| GAME (Y) | **Walk** (hold while moving; also passport Select) |
+| VOLUME + A | Weapon draw / holster |
+| VOLUME + B | Look up/down (swim dive aid) |
+| VOLUME + GAME | Look (camera) |
+| TIME (X) | Inventory |
+| MENU | Retro-Go pause (not bound in-game) |
+
+To push a block: face it, hold **A** (Action) and press into it. Holster weapons first (**VOLUME+A**) if Lara has pistols out — Action then shoots instead.
+
+Copy `TITLE.SCR` (38 KiB) next to the PKDs for the title background, and
+`TRACKS.AD4` for music (both from OpenLara GBA `data/`).
+Without `TRACKS.AD4` the game still runs; only music is silent.
 
 ## Layout
 
 ```
-Makefile            Project build + pack + docker (PROJECT_KIND=core|homebrew)
-src/                Project sources (main.c) and core logos (assets/)
-sdk/
-  include/          Vendored headers (ABI, odroid, CMSIS/HAL, FatFs, gwhb.h, …)
-  src/              Bridge, entry trampoline, i18n, redefine-syms map
-  ld/               RAM_EMU linker scripts (must match firmware);
-                    start with ld/core_ram_emu.ld
-  tools/            pack_core.py, pack_homebrew.py
-  Makefile          Shared compile/link rules (included by the root Makefile)
-scripts/            Sync helper
+Makefile                 Homebrew pack → OpenLara.bin
+src/platform/gnw/        OS, present, input, sound, app_main
+src/platform/gnw/ol →    symlink to third_party/OpenLara/src/fixed
+third_party/OpenLara/    Upstream fixed engine + GBA rasterizer (patched)
+patches/                 __GNW__ diffs for OpenLara
+sdk/                     Retro-Go SD core SDK (ABI bridge)
+scripts/fetch_openlara.sh
 ```
 
-## ABI compatibility
+`src/main.c` is the old template skeleton and is **not** linked for this
+project.
 
-Cores and homebrews embed `required_abi_version` and `required_abi_min_size`
-(from `GW_CORE_BUILT_ABI_*` in the bridge). The firmware refuses to load a
-binary that asks for a newer/larger ABI than it provides.
+## Notes / next milestones
 
-See `SDK_VERSION` for the snapshot this tree was cut from. After a released
-ABI:
-
-- **Append** a new function pointer at the end of `gw_firmware_abi_t` →
-  usually no version bump; `required_abi_min_size` grows.
-- **Change a ctl signature** or remove/reorder fields → bump
-  `GW_FIRMWARE_ABI_VERSION`.
-- **Add a new ctl op** without changing the C signature → bump version (or
-  another capability flag) so binaries that need the op can require it.
-
-While developing against unreleased firmware you may rebuild firmware +
-binaries together without bumping.
-
-## Refreshing the SDK from firmware
-
-If you maintain this tree alongside a firmware checkout:
-
-```bash
-./scripts/sync_from_firmware.sh /path/to/game-and-watch-retro-go-sd
-```
-
-That re-copies headers (including `gwhb.h`), bridge sources, linker scripts,
-`pack_core.py`, and `pack_homebrew.py`. Review the diff before committing.
+- Saves / settings not wired yet.
+- Render is still GBA MODE4 240×160, stretched to the LCD; switching to the
+  DOS MODE13 rasterizer (native 320×240) is the real resolution upgrade.
+- Retail `.PSX` levels are not supported by the fixed engine (no `fmt/psx.h`);
+  keep using GBA `.PKD` (from PC `.PHD` via the upstream packer).
+- Hot paths may move to ITCM later; v1 keeps everything in RAM_EMU.
 
 ## License
 
-Build glue and the template are MIT (see `LICENSE`). Vendored files under
-`sdk/include/` keep their upstream licenses (firmware / HAL / FatFs / etc.).
+Port glue in this repo is MIT (see `LICENSE`). OpenLara remains
+BSD-2-Clause (see `third_party/OpenLara/LICENSE`). Vendored SDK headers keep
+their upstream licenses. You need legally obtained Tomb Raider level data
+(PKD); this repo does not ship game assets.
