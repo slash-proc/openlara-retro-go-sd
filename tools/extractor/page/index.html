@@ -81,10 +81,14 @@
 
     <!-- What was found, before anything is converted. The point of showing it
          is that pointing at the wrong folder is visible here rather than after
-         twenty conversions. -->
+         twenty conversions, and the count above says that in one line. The
+         rows themselves are twenty-one lines of the same four facts, so they
+         sit behind a disclosure and the count carries the page. -->
     <div id="found" hidden>
-      <h3 id="found-heading"></h3>
-      <ul id="found-list" class="found-list"></ul>
+      <details id="found-detail" class="found-detail">
+        <summary id="found-toggle">Per-level detail</summary>
+        <ul id="found-list" class="found-list"></ul>
+      </details>
     </div>
     <!-- What was passed over, and why. Never silent. -->
     <ul id="skipped" class="skipped" hidden></ul>

@@ -211,6 +211,12 @@ footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--line);
 
 .role-desc { color: var(--muted); font-size: .9rem; margin: 0 0 .8rem; }
 
+/* The rows are behind a click: twenty-one lines of the same four facts is not
+   what the page has to say about a scan, the count above it is. */
+.found-detail { margin-top: .4rem; }
+.found-detail > summary { color: var(--muted); font-size: .85rem; }
+.found-detail > summary:hover { color: var(--accent); }
+
 .found-list { list-style: none; padding: 0; margin: .5rem 0 0; }
 .found-list li {
   display: grid;

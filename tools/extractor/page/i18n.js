@@ -53,9 +53,9 @@ const en = {
     scanning: (n) => `${n} file${n === 1 ? "" : "s"}`,
     reading: (name) => name,
     bytes: (n) => `${n.toLocaleString("en-GB")} bytes`,
-    // The heading over the list, which is the whole point of showing one: the
-    // user sees what was found before a single conversion is spent.
-    foundHeading: (n) => `${n} level${n === 1 ? "" : "s"} found`,
+    // The label on the closed disclosure. The count above it is what the page
+    // actually says about the scan; this only offers the rows behind it.
+    detail: (n) => `Per-level detail, ${n} level${n === 1 ? "" : "s"}`,
     foundCount: (n, ignored, root) =>
       `${n} level${n === 1 ? "" : "s"} found${root ? ` in ${root}` : ""}` +
       (ignored ? `, and ${ignored} other file${ignored === 1 ? "" : "s"} ignored.` : "."),
@@ -132,6 +132,7 @@ const en = {
     // Three outcomes, and only one of them is a problem. A level the module
     // cannot place against its table of retail releases still converted: a
     // modded or fan-translated level is not a known release by construction.
+    converted: "Converted",
     known: "Known release",
     unknown: "Not a known release",
     failed: "Failed",
@@ -176,7 +177,7 @@ const fr = {
     scanning: (n) => `${n} fichier${n === 1 ? "" : "s"}`,
     reading: (name) => name,
     bytes: (n) => `${n.toLocaleString("fr-FR")} octets`,
-    foundHeading: (n) => `${n} niveau${n === 1 ? "" : "x"} trouvé${n === 1 ? "" : "s"}`,
+    detail: (n) => `Détail par niveau, ${n} niveau${n === 1 ? "" : "x"}`,
     foundCount: (n, ignored, root) =>
       `${n} niveau${n === 1 ? "" : "x"} trouvé${n === 1 ? "" : "s"}${root ? ` dans ${root}` : ""}` +
       (ignored ? `, et ${ignored} autre${ignored === 1 ? "" : "s"} fichier${ignored === 1 ? "" : "s"} ignoré${ignored === 1 ? "" : "s"}.` : "."),
@@ -242,6 +243,7 @@ const fr = {
     hash: "SHA-256",
     colDownload: "Téléchargement",
     save: "Enregistrer",
+    converted: "Converti",
     known: "Version connue",
     unknown: "Version inconnue",
     failed: "Échec",
@@ -286,7 +288,7 @@ const de = {
     scanning: (n) => `${n} Datei${n === 1 ? "" : "en"}`,
     reading: (name) => name,
     bytes: (n) => `${n.toLocaleString("de-DE")} Bytes`,
-    foundHeading: (n) => `${n} Level gefunden`,
+    detail: (n) => `Details je Level, ${n} Level`,
     foundCount: (n, ignored, root) =>
       `${n} Level gefunden${root ? `, in ${root}` : ""}` +
       (ignored ? `, und ${ignored} andere Datei${ignored === 1 ? "" : "en"} übergangen.` : "."),
@@ -351,6 +353,7 @@ const de = {
     hash: "SHA-256",
     colDownload: "Download",
     save: "Speichern",
+    converted: "Umgewandelt",
     known: "Bekannte Fassung",
     unknown: "Unbekannte Fassung",
     failed: "Fehlgeschlagen",

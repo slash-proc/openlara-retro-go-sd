@@ -99,6 +99,13 @@ function targetForTool() {
 }
 
 /**
+ * Whether the manifest gives this page anything to recognise a file by. With no
+ * variants declared there is no table to match against, so neither "known" nor
+ * "unknown" is a statement this page is entitled to make about a level.
+ */
+const knowsReleases = () => (theInput()?.variants ?? []).length > 0;
+
+/**
  * Whether this input insists on a file it recognises. `strict` defaults to
  * true: an input that says nothing wants a known hash. This project's does not,
  * because a level from a patched or fan-translated install cannot match a known
@@ -609,10 +616,16 @@ function renderFound() {
     // What we know before converting: a hash match against the manifest's list
     // of releases. Anything else is not a verdict yet -- the module gets the
     // last word on that, and says so in a warning after the run.
+    //
+    // An input that declares no variants at all gives us nothing to check
+    // against, and "not a known release" would then be a verdict on the
+    // manifest rather than on the file. So the column is simply absent: an
+    // empty table of releases is not the same as a file that failed to match
+    // one.
     const mark = document.createElement("span");
     mark.className = `f-mark ${e.variant ? "ok" : "warn"}`;
-    mark.textContent = e.variant
-      ? (localeText(e.variant.label) || t().input.recognised)
+    mark.textContent = !knowsReleases() ? ""
+      : e.variant ? (localeText(e.variant.label) || t().input.recognised)
       : t().input.unknownYet;
 
     const to = document.createElement("span");
@@ -627,7 +640,7 @@ function renderFound() {
   });
 
   box.hidden = state.found.length === 0;
-  $("found-heading").textContent = t().input.foundHeading(state.found.length);
+  $("found-toggle").textContent = t().input.detail(state.found.length);
 
   skippedBox.replaceChildren();
   skippedBox.hidden = state.skipped.length === 0;
@@ -773,10 +786,15 @@ function renderResults() {
     // against its own table is a known one; a level the module warned about
     // converted perfectly well and is simply not a release we know, which is
     // what a modded or fan-translated level looks like. Neither is a failure.
+    //
+    // With no variants declared there is no table to place a level against, so
+    // the column says the only thing that is true: it converted. The three-way
+    // verdict comes back on its own the moment a manifest ships variants, which
+    // is the same rule the found list follows.
     const placed = p.warnings.length === 0 && Boolean(p.source.variant);
-    const status = cell(tr, "", `st ${placed ? "ok" : "warn"}`);
-    status.textContent = placed
-      ? (localeText(p.source.variant.label) || t().results.known)
+    const status = cell(tr, "", `st ${!knowsReleases() || placed ? "ok" : "warn"}`);
+    status.textContent = !knowsReleases() ? t().results.converted
+      : placed ? (localeText(p.source.variant.label) || t().results.known)
       : t().results.unknown;
     // The module's own words about what it could not place, under the verdict
     // rather than instead of it. textContent: this string came from the module.
