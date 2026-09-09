@@ -11,7 +11,7 @@ One tree = one binary. Choose the kind at build time:
 | Kind         | `PROJECT_KIND` | Packer             | SD path                |
 | ------------ | -------------- | ------------------ | ---------------------- |
 | Dynamic core | `core` (default) | `pack_core.py`   | `/cores/*.bin`         |
-| Homebrew     | `homebrew`     | `pack_homebrew.py` | `/roms/homebrew/*.bin` |
+| Homebrew     | `homebrew`     | `pack_homebrew.py` | `/homebrews/*.bin` |
 
 
 Read `README.md` for build/pack basics. Read `sdk/ld/core_ram_emu.ld` for
@@ -70,7 +70,7 @@ Same as cores for steps 2–8, but:
    compiled out via `PROJECT_KIND_HOMEBREW`).
 2. Pack metadata uses `pack_homebrew.py` (`--name`, `--version`, optional
    `--cover`) — see the homebrew branch in the root `Makefile`.
-3. No ROM load — `ACTIVE_FILE` is the GWHB `.bin` under `/roms/homebrew/`.
+3. No ROM load — `ACTIVE_FILE` is the GWHB `.bin` under `/homebrews/`.
 4. Cover JPEG ≤ 186×100 and ≤ 10 KiB; `/covers/homebrew/<stem>.img`
   overrides the embedded cover if present.
 5. Sidecar assets that do not fit in RAM_EMU stay as sibling SD files.
