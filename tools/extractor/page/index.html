@@ -96,16 +96,40 @@
     <div id="run-status" class="status" hidden></div>
     <div id="results" hidden>
       <h3 data-i18n="results.heading">Converted files</h3>
-      <ul id="downloads" class="downloads"></ul>
       <!-- The converted levels are only half an install: the rest is what the
            project published, which the manifest already names and hashes. This
            offers both as one download, in the folders they go in on the card,
-           rather than sending the user off to find the other half themselves. -->
+           rather than sending the user off to find the other half themselves.
+           It is the whole reason anyone came here, so it is the one prominent
+           control and the per-file detail below it stays folded away. -->
       <div id="zip-wrap" class="zip-wrap" hidden>
-        <button type="button" id="zip" data-i18n="zip.button">Download everything</button>
+        <button type="button" id="zip" class="zip-button">Download the install zip</button>
         <p id="zip-note" class="zip-note"></p>
         <div id="zip-status" class="status" hidden></div>
       </div>
+
+      <!-- Twenty-one rows nobody reads, unless something went wrong: then it is
+           the only place that says which level and why. Collapsed by default,
+           one row per file, with the individual download still there for
+           someone re-converting a single level. -->
+      <details id="file-detail" class="file-detail">
+        <summary id="file-summary">Per-file detail</summary>
+        <div class="table-scroll">
+          <table class="file-table">
+            <thead>
+              <tr>
+                <th data-i18n="results.colSource">Level</th>
+                <th data-i18n="results.colFile">Output</th>
+                <th data-i18n="results.colStatus">Status</th>
+                <th class="num" data-i18n="results.colSize">Size</th>
+                <th data-i18n="results.hash">SHA-256</th>
+                <th data-i18n="results.colDownload">Download</th>
+              </tr>
+            </thead>
+            <tbody id="file-rows"></tbody>
+          </table>
+        </div>
+      </details>
     </div>
   </section>
 

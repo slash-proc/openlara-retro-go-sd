@@ -29,7 +29,7 @@ export const SUPPORTED = [
 const en = {
   app: {
     heading: (title) => `${title} level converter`,
-    lede: (game, ext) => `Convert your ${game} levels into the ${ext} files this port reads`,
+    lede: (game, ext) => `Converts ${game} levels into the ${ext} files this port reads`,
   },
   lang: {
     label: "Language",
@@ -41,17 +41,17 @@ const en = {
   },
   why: {
     label: "What this does",
-    text: "Runs in your browser. Your game files never leave your computer.",
+    text: "Runs in the browser. Game files are not uploaded anywhere.",
   },
   input: {
-    heading: "Your game folder",
+    heading: "Game folder",
     // Two ways in, and the folder is the one to reach for: the levels sit in a
     // subfolder whose name differs between a CD, a GOG install and a copy
     // someone made, and the page looks through all of it either way.
     chooseFolder: "Choose folder",
     chooseFiles: "Choose files instead",
-    scanning: (n) => `Looking through ${n} file${n === 1 ? "" : "s"}…`,
-    reading: (name) => `Reading ${name}…`,
+    scanning: (n) => `${n} file${n === 1 ? "" : "s"}`,
+    reading: (name) => name,
     bytes: (n) => `${n.toLocaleString("en-GB")} bytes`,
     // The heading over the list, which is the whole point of showing one: the
     // user sees what was found before a single conversion is spent.
@@ -64,11 +64,11 @@ const en = {
     noneFound: (exts, where, n) =>
       `No ${exts} files anywhere in ${where}, out of ${n} file${n === 1 ? "" : "s"}. ` +
       `Choose the folder Tomb Raider is installed in, or the CD itself.`,
-    yourSelection: "what you chose",
+    theSelection: "the selection",
     // Recognised means "this hashes to a release the project knows". It is not
     // the last word: the module has its own table and says so after the run.
     recognised: "known release",
-    unknownYet: "not a release we know",
+    unknownYet: "not a known release",
     duplicateStem: (stem, kept) =>
       `another copy of ${stem}; converting ${kept} instead, since both would be ` +
       `written as the same file. Choose a narrower folder if that is the wrong one.`,
@@ -82,9 +82,9 @@ const en = {
   run: {
     heading: "Convert",
     button: "Convert",
-    converting: (i, n, name) => `Converting ${name} (${i} of ${n})…`,
+    converting: (i, n, name) => `${name}, ${i} of ${n}`,
     timedOut: (name) => `${name} took too long and was stopped.`,
-    done: (n) => `Done, ${n} file${n === 1 ? "" : "s"} ready.`,
+    done: (n) => `${n} file${n === 1 ? "" : "s"} ready.`,
     failed: (name, msg) => `${name} could not be converted: ${msg}`,
     tooBig: (name, size, max) =>
       `${name} came out at ${size} bytes, more than the ${max} its manifest allows.`,
@@ -100,13 +100,14 @@ const en = {
     noConverter: "This version needs no conversion: install the published files as they are.",
   },
   zip: {
-    button: "Download everything",
+    button: (n, size) =>
+      `Download the install zip (${n} file${n === 1 ? "" : "s"}, ${size})`,
     // The layout is the useful fact: the zip already puts each file where it
     // goes, so all the user has to do is copy the folder onto the card.
     note: (binaries, dir, n) =>
       `One zip, laid out for the card: ${binaries}, and ${n} level` +
       `${n === 1 ? "" : "s"} in ${dir}`,
-    building: "Fetching the published files and packing them…",
+    building: "Packing the archive",
     ready: (name, bytes) => `${name} saved, ${bytes.toLocaleString("en-GB")} bytes.`,
     failed: (msg) => `Could not build the zip: ${msg}`,
     fetchFailed: (name, status) => `could not fetch ${name} (${status})`,
@@ -117,11 +118,23 @@ const en = {
   results: {
     heading: "Converted files",
     bytes: (n) => `${n.toLocaleString("en-GB")} bytes`,
-    hash: "Hash",
-    // The module warns when it cannot place a level against its own table of
-    // retail releases. The file converted; it is simply not one we know, and
-    // that reads as a note rather than as a failure.
-    notPlaced: "Converted, but:",
+    mb: (n) => `${n.toLocaleString("en-GB", { maximumFractionDigits: 1 })} MB`,
+    // The table is collapsed by default, so its summary has to say what is
+    // inside it and how much of it there is.
+    summary: (n) => `Per-file detail, ${n} file${n === 1 ? "" : "s"}`,
+    colSource: "Level",
+    colFile: "Output",
+    colStatus: "Status",
+    colSize: "Size",
+    hash: "SHA-256",
+    colDownload: "Download",
+    save: "Save",
+    // Three outcomes, and only one of them is a problem. A level the module
+    // cannot place against its table of retail releases still converted: a
+    // modded or fan-translated level is not a known release by construction.
+    known: "Known release",
+    unknown: "Not a known release",
+    failed: "Failed",
   },
   footer: {
     source: "Source and documentation:",
@@ -142,7 +155,7 @@ const fr = {
   app: {
     heading: (title) => `Convertisseur de niveaux ${title}`,
     lede: (game, ext) =>
-      `Convertissez vos niveaux ${game} en fichiers ${ext}, ceux que ce portage lit`,
+      `Convertit les niveaux ${game} en fichiers ${ext}, ceux que ce portage lit`,
   },
   lang: {
     label: "Langue",
@@ -154,14 +167,14 @@ const fr = {
   },
   why: {
     label: "Ce que fait cette page",
-    text: "Tout se passe dans votre navigateur. Vos fichiers de jeu ne quittent pas votre ordinateur.",
+    text: "Tout se passe dans le navigateur. Aucun fichier de jeu n'est envoyé.",
   },
   input: {
-    heading: "Votre dossier de jeu",
+    heading: "Dossier de jeu",
     chooseFolder: "Choisir un dossier",
     chooseFiles: "Choisir des fichiers",
-    scanning: (n) => `Examen de ${n} fichier${n === 1 ? "" : "s"}…`,
-    reading: (name) => `Lecture de ${name}…`,
+    scanning: (n) => `${n} fichier${n === 1 ? "" : "s"}`,
+    reading: (name) => name,
     bytes: (n) => `${n.toLocaleString("fr-FR")} octets`,
     foundHeading: (n) => `${n} niveau${n === 1 ? "" : "x"} trouvé${n === 1 ? "" : "s"}`,
     foundCount: (n, ignored, root) =>
@@ -169,26 +182,26 @@ const fr = {
       (ignored ? `, et ${ignored} autre${ignored === 1 ? "" : "s"} fichier${ignored === 1 ? "" : "s"} ignoré${ignored === 1 ? "" : "s"}.` : "."),
     noneFound: (exts, where, n) =>
       `Aucun fichier ${exts} dans ${where}, sur ${n} fichier${n === 1 ? "" : "s"}. ` +
-      `Choisissez le dossier où Tomb Raider est installé, ou le CD lui-même.`,
-    yourSelection: "votre sélection",
+      `Choisir le dossier où Tomb Raider est installé, ou le CD lui-même.`,
+    theSelection: "la sélection",
     recognised: "version connue",
-    unknownYet: "version que nous ne connaissons pas",
+    unknownYet: "version inconnue",
     duplicateStem: (stem, kept) =>
       `autre copie de ${stem} ; c'est ${kept} qui est converti, les deux portant ` +
-      `le même nom une fois écrits. Choisissez un dossier plus précis si ce n'est pas le bon.`,
+      `le même nom une fois écrits. Choisir un dossier plus précis si ce n'est pas le bon.`,
     notRecognised: (sha1) => `version refusée par ce convertisseur (SHA-1 ${sha1}).`,
     tooLarge: (size, max) => `${size} octets, plus que les ${max} d'un niveau.`,
     unusableName: (why) => `ne peut pas porter ce nom sur la carte : ${why}.`,
     tooMany: (n, max) =>
       `${n} niveaux, c'est plus que les ${max} convertis en une fois par cette version. ` +
-      `Choisissez un dossier qui en contient moins.`,
+      `Choisir un dossier qui en contient moins.`,
   },
   run: {
     heading: "Convertir",
     button: "Convertir",
-    converting: (i, n, name) => `Conversion de ${name} (${i} sur ${n})…`,
+    converting: (i, n, name) => `${name}, ${i} sur ${n}`,
     timedOut: (name) => `${name} a pris trop de temps et a été interrompu.`,
-    done: (n) => `Terminé, ${n} fichier${n === 1 ? "" : "s"} prêt${n === 1 ? "" : "s"}.`,
+    done: (n) => `${n} fichier${n === 1 ? "" : "s"} prêt${n === 1 ? "" : "s"}.`,
     failed: (name, msg) => `${name} n'a pas pu être converti : ${msg}`,
     tooBig: (name, size, max) =>
       `${name} fait ${size} octets, plus que les ${max} autorisés par son manifeste.`,
@@ -201,14 +214,15 @@ const fr = {
     retained: (n) => `Les ${n} versions les plus récentes.`,
     olderReleases: "Versions plus anciennes",
     pinned: (tag) => `Version ${tag}`,
-    noConverter: "Cette version ne demande aucune conversion : installez les fichiers publiés tels quels.",
+    noConverter: "Cette version ne demande aucune conversion : installer les fichiers publiés tels quels.",
   },
   zip: {
-    button: "Tout télécharger",
+    button: (n, size) =>
+      `Télécharger l'archive d'installation (${n} fichier${n === 1 ? "" : "s"}, ${size})`,
     note: (binaries, dir, n) =>
       `Une archive, déjà rangée pour la carte : ${binaries}, et ${n} niveau` +
       `${n === 1 ? "" : "x"} dans ${dir}`,
-    building: "Récupération des fichiers publiés et création de l'archive…",
+    building: "Création de l'archive",
     ready: (name, bytes) => `${name} enregistré, ${bytes.toLocaleString("fr-FR")} octets.`,
     failed: (msg) => `Impossible de créer l'archive : ${msg}`,
     fetchFailed: (name, status) => `${name} n'a pas pu être récupéré (${status})`,
@@ -219,8 +233,18 @@ const fr = {
   results: {
     heading: "Fichiers convertis",
     bytes: (n) => `${n.toLocaleString("fr-FR")} octets`,
-    hash: "Empreinte",
-    notPlaced: "Converti, mais :",
+    mb: (n) => `${n.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} Mo`,
+    summary: (n) => `Détail par fichier, ${n} fichier${n === 1 ? "" : "s"}`,
+    colSource: "Niveau",
+    colFile: "Sortie",
+    colStatus: "État",
+    colSize: "Taille",
+    hash: "SHA-256",
+    colDownload: "Téléchargement",
+    save: "Enregistrer",
+    known: "Version connue",
+    unknown: "Version inconnue",
+    failed: "Échec",
   },
   footer: {
     source: "Code source et documentation :",
@@ -241,7 +265,7 @@ const de = {
   app: {
     heading: (title) => `${title} Level-Konverter`,
     lede: (game, ext) =>
-      `Wandle deine ${game}-Level in die ${ext}-Dateien um, die dieser Port liest`,
+      `Wandelt ${game}-Level in die ${ext}-Dateien um, die dieser Port liest`,
   },
   lang: {
     label: "Sprache",
@@ -253,14 +277,14 @@ const de = {
   },
   why: {
     label: "Was hier passiert",
-    text: "Läuft im Browser. Deine Spieldateien bleiben auf deinem Rechner.",
+    text: "Läuft im Browser. Es werden keine Spieldateien hochgeladen.",
   },
   input: {
-    heading: "Dein Spielordner",
+    heading: "Spielordner",
     chooseFolder: "Ordner auswählen",
     chooseFiles: "Dateien auswählen",
-    scanning: (n) => `${n} Datei${n === 1 ? "" : "en"} werden durchgesehen…`,
-    reading: (name) => `${name} wird gelesen…`,
+    scanning: (n) => `${n} Datei${n === 1 ? "" : "en"}`,
+    reading: (name) => name,
     bytes: (n) => `${n.toLocaleString("de-DE")} Bytes`,
     foundHeading: (n) => `${n} Level gefunden`,
     foundCount: (n, ignored, root) =>
@@ -268,26 +292,26 @@ const de = {
       (ignored ? `, und ${ignored} andere Datei${ignored === 1 ? "" : "en"} übergangen.` : "."),
     noneFound: (exts, where, n) =>
       `Keine ${exts}-Dateien in ${where}, bei ${n} Datei${n === 1 ? "" : "en"} insgesamt. ` +
-      `Wähle den Ordner, in dem Tomb Raider installiert ist, oder die CD selbst.`,
-    yourSelection: "deiner Auswahl",
+      `Den Ordner wählen, in dem Tomb Raider installiert ist, oder die CD selbst.`,
+    theSelection: "der Auswahl",
     recognised: "bekannte Fassung",
-    unknownYet: "keine Fassung, die wir kennen",
+    unknownYet: "unbekannte Fassung",
     duplicateStem: (stem, kept) =>
       `noch eine Kopie von ${stem}; umgewandelt wird ${kept}, weil beide unter ` +
-      `demselben Namen landen würden. Wähle einen engeren Ordner, falls das die falsche ist.`,
+      `demselben Namen landen würden. Einen engeren Ordner wählen, falls das die falsche ist.`,
     notRecognised: (sha1) => `keine Fassung, die diese Version annimmt (SHA-1 ${sha1}).`,
     tooLarge: (size, max) => `${size} Bytes, mehr als die ${max} eines Levels.`,
     unusableName: (why) => `kann auf der Karte nicht so heißen: ${why}.`,
     tooMany: (n, max) =>
       `${n} Level sind mehr als die ${max}, die diese Version auf einmal umwandelt. ` +
-      `Wähle einen Ordner mit weniger davon.`,
+      `Einen Ordner mit weniger davon wählen.`,
   },
   run: {
     heading: "Umwandeln",
     button: "Umwandeln",
-    converting: (i, n, name) => `${name} wird umgewandelt (${i} von ${n})…`,
+    converting: (i, n, name) => `${name}, ${i} von ${n}`,
     timedOut: (name) => `${name} hat zu lange gedauert und wurde abgebrochen.`,
-    done: (n) => `Fertig, ${n} Datei${n === 1 ? "" : "en"} bereit.`,
+    done: (n) => `${n} Datei${n === 1 ? "" : "en"} bereit.`,
     failed: (name, msg) => `${name} konnte nicht umgewandelt werden: ${msg}`,
     tooBig: (name, size, max) =>
       `${name} ist ${size} Bytes groß, mehr als die im Manifest erlaubten ${max}.`,
@@ -300,13 +324,14 @@ const de = {
     retained: (n) => `Die ${n} neuesten Versionen.`,
     olderReleases: "Ältere Versionen",
     pinned: (tag) => `Version ${tag}`,
-    noConverter: "Diese Version braucht keine Umwandlung: installiere die veröffentlichten Dateien so, wie sie sind.",
+    noConverter: "Diese Version braucht keine Umwandlung: die veröffentlichten Dateien so installieren, wie sie sind.",
   },
   zip: {
-    button: "Alles herunterladen",
+    button: (n, size) =>
+      `Installations-Archiv herunterladen (${n} Datei${n === 1 ? "" : "en"}, ${size})`,
     note: (binaries, dir, n) =>
       `Ein Archiv, schon passend für die Karte: ${binaries}, und ${n} Level in ${dir}`,
-    building: "Die veröffentlichten Dateien werden geholt und gepackt…",
+    building: "Archiv wird gepackt",
     ready: (name, bytes) => `${name} gespeichert, ${bytes.toLocaleString("de-DE")} Bytes.`,
     failed: (msg) => `Das Archiv konnte nicht erstellt werden: ${msg}`,
     fetchFailed: (name, status) => `${name} konnte nicht geladen werden (${status})`,
@@ -317,8 +342,18 @@ const de = {
   results: {
     heading: "Umgewandelte Dateien",
     bytes: (n) => `${n.toLocaleString("de-DE")} Bytes`,
-    hash: "Prüfsumme",
-    notPlaced: "Umgewandelt, aber:",
+    mb: (n) => `${n.toLocaleString("de-DE", { maximumFractionDigits: 1 })} MB`,
+    summary: (n) => `Details je Datei, ${n} Datei${n === 1 ? "" : "en"}`,
+    colSource: "Level",
+    colFile: "Ausgabe",
+    colStatus: "Status",
+    colSize: "Größe",
+    hash: "SHA-256",
+    colDownload: "Download",
+    save: "Speichern",
+    known: "Bekannte Fassung",
+    unknown: "Unbekannte Fassung",
+    failed: "Fehlgeschlagen",
   },
   footer: {
     source: "Quellcode und Dokumentation:",

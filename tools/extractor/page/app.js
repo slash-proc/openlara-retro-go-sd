@@ -68,6 +68,9 @@ const state = {
   // One entry per converted level, accumulated across runs rather than
   // replacing: { source, outputId, data, sha256, warnings }.
   produced: [],
+  // The level a run stopped on, if one did. It never reaches `produced`, so
+  // without this the table would simply not mention the file that failed.
+  failure: null,
   running: false,
 };
 
@@ -386,6 +389,7 @@ function resetScan() {
   state.ignored = 0;
   state.scanProblem = null;
   state.produced = [];
+  state.failure = null;
   $("found").hidden = true;
   $("scan-status").hidden = true;
   $("results").hidden = true;
@@ -510,7 +514,7 @@ async function scan(fileList) {
     // reads like the page broke.
     state.skipped = skipped;
     state.scanProblem = t().input.noneFound(
-      (input.extensions ?? []).join(", "), root ?? t().input.yourSelection, files.length);
+      (input.extensions ?? []).join(", "), root ?? t().input.theSelection, files.length);
     setStatus(status, "warn", state.scanProblem);
     renderFound();
     updateGo();
@@ -687,6 +691,7 @@ async function run() {
   const status = $("run-status");
   state.running = true;
   state.produced = [];
+  state.failure = null;
   $("results").hidden = true;
   $("zip-wrap").hidden = true;
   updateGo();
@@ -723,6 +728,7 @@ async function run() {
     } catch (e) {
       if (cell) cell.textContent = "✗";
       failed = { entry, message: e?.message ?? String(e) };
+      state.failure = failed;
     }
   }
 
@@ -744,53 +750,80 @@ async function run() {
 
 function renderResults() {
   if (!state.produced.length) return;
-  const list = $("downloads");
-  list.replaceChildren();
+  const rows = $("file-rows");
+  rows.replaceChildren();
+
+  const cell = (tr, text, cls) => {
+    const td = document.createElement("td");
+    if (cls) td.className = cls;
+    if (text != null) td.textContent = text;      // never innerHTML: module data
+    tr.append(td);
+    return td;
+  };
 
   for (const p of state.produced) {
-    const li = document.createElement("li");
+    const tr = document.createElement("tr");
+    const name = outputFileName(theOutput(), p.source);
 
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([p.data], { type: "application/octet-stream" }));
-    a.download = outputFileName(theOutput(), p.source);
-    a.textContent = a.download;
+    cell(tr, p.source.name).title = p.source.path ?? p.source.name;
+    cell(tr, name, "out");
 
-    const meta = document.createElement("span");
-    meta.className = "meta";
-    meta.textContent = t().results.bytes(p.data.length);
-
-    const toggle = document.createElement("button");
-    toggle.type = "button";
-    toggle.className = "hash-toggle";
-    toggle.textContent = t().results.hash;
-    const hashEl = document.createElement("code");
-    hashEl.className = "hash-value";
-    hashEl.hidden = true;
-    hashEl.textContent = p.sha256;
-    toggle.addEventListener("click", () => { hashEl.hidden = !hashEl.hidden; });
-
-    li.append(a, meta, toggle, hashEl);
-
-    // The module's own words about what it just packed. It warns, with a
-    // sha256, when it cannot place a level against its table of releases: the
-    // file converted, and it is not one of the retail levels we know. That is
-    // worth saying and it is not an error, so it reads as a note against the
-    // file rather than as a failure of the run. textContent: this string came
-    // from the module.
-    if (p.warnings.length) {
-      const notes = document.createElement("ul");
-      notes.className = "notes";
-      for (const w of p.warnings) {
-        const n = document.createElement("li");
-        n.textContent = `${t().results.notPlaced} ${w}`;
-        notes.append(n);
-      }
-      li.append(notes);
+    // Three outcomes, and the module has the last word on two of them. A level
+    // that hashes to a release the manifest lists and that the module placed
+    // against its own table is a known one; a level the module warned about
+    // converted perfectly well and is simply not a release we know, which is
+    // what a modded or fan-translated level looks like. Neither is a failure.
+    const placed = p.warnings.length === 0 && Boolean(p.source.variant);
+    const status = cell(tr, "", `st ${placed ? "ok" : "warn"}`);
+    status.textContent = placed
+      ? (localeText(p.source.variant.label) || t().results.known)
+      : t().results.unknown;
+    // The module's own words about what it could not place, under the verdict
+    // rather than instead of it. textContent: this string came from the module.
+    for (const w of p.warnings) {
+      const note = document.createElement("span");
+      note.className = "st-note";
+      note.textContent = w;
+      status.append(note);
     }
 
-    list.append(li);
+    cell(tr, t().results.bytes(p.data.length), "num");
+
+    const hash = cell(tr, p.sha256.slice(0, 16), "mono hash");
+    hash.title = p.sha256;
+
+    // Still here, still one click, just not the thing the page is shouting
+    // about: someone re-converting one level should not have to take the whole
+    // archive again.
+    const td = document.createElement("td");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([p.data], { type: "application/octet-stream" }));
+    a.download = name;
+    a.textContent = t().results.save;
+    td.append(a);
+    tr.append(td);
+
+    rows.append(tr);
   }
 
+  // The one row that is a failure. It is not in `produced` because nothing was
+  // produced, and leaving it out would make the table disagree with the run.
+  if (state.failure) {
+    const tr = document.createElement("tr");
+    cell(tr, state.failure.entry.name).title = state.failure.entry.path;
+    cell(tr, state.failure.entry.outName ?? "", "out");
+    const status = cell(tr, t().results.failed, "st bad");
+    const note = document.createElement("span");
+    note.className = "st-note";
+    note.textContent = state.failure.message;
+    status.append(note);
+    cell(tr, "", "num");
+    cell(tr, "", "mono hash");
+    cell(tr, "");
+    rows.append(tr);
+  }
+
+  $("file-summary").textContent = t().results.summary(rows.childElementCount);
   $("results").hidden = false;
   renderZipOffer();
 }
@@ -860,7 +893,15 @@ function renderZipOffer() {
   wrap.hidden = false;
   status.hidden = true;
   button.disabled = false;
-  button.textContent = t().zip.button;
+  // What the archive holds, on the control that fetches it: how many files and
+  // how much of the connection they will cost. The artifact sizes come from the
+  // manifest, which states them, and the levels are already in hand, so this is
+  // the real total rather than an estimate. The zip itself can only be smaller,
+  // since entries are stored or deflated, whichever is less.
+  const bytes = state.produced.reduce((n, p) => n + p.data.length, 0)
+    + (target?.artifacts ?? []).reduce((n, a) => n + (a.bytes ?? 0), 0);
+  const count = state.produced.length + (target?.artifacts ?? []).length;
+  button.textContent = t().zip.button(count, t().results.mb(bytes / 1e6));
   // Say where the files land, because that is the question the zip answers.
   const root = INSTALL_ROOT[target?.kind] ?? "homebrews";
   const dir = target?.dataDir ? `${root}/${target.dataDir}/` : `${root}/`;
