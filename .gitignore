@@ -16,3 +16,8 @@ __pycache__/
 sd_assets/
 # Local PKD/test data (not part of the homebrew binary)
 data/
+
+# Assembled Pages site and the mirrored dist it holds; built by
+# tools/extractor/build-page.sh, never committed.
+tools/extractor/site/
+tools/extractor/dist/

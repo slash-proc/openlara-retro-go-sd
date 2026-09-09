@@ -5,6 +5,34 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 match a section heading exactly (for example `v0.1.0`); CI reads the matching
 section and uses it as the GitHub Release notes.
 
+## [Unreleased]
+
+### Added
+
+- A browser conversion page under `tools/extractor/page/`. The user points it at
+  a Tomb Raider 1 install, it finds the `.PHD` files anywhere in the tree, runs
+  the wasm packer once per level in a worker, and hands back one zip already
+  laid out for the card: `homebrews/OpenLara.bin` beside
+  `homebrews/openlara/*.PKD`. The folder comes from the manifest's `dataDir`,
+  which is why that field exists.
+- `install.mjs`, the naming and placement half of the spec's host requirements,
+  kept out of the page so the tests exercise the same code the page does. The
+  module labels its output `pkd` and never names anything; a level's name on the
+  card is its own stem with the manifest's declared extension in place of
+  whatever it had, checked as a filename and compared case-insensitively per
+  directory, because the card folds case and two levels that differ only in
+  case would silently become one file there.
+- `build-page.sh`, and `test-site.mjs`, `test-install.mjs`, `test-i18n.mjs` and
+  `test-convert.mjs` so CI can check the assembled site, the naming rules, the
+  translations and a real end-to-end conversion without a browser.
+
+### Changed
+
+- `extract.mjs` is now a library with the command line guarded behind it, the
+  way the other projects in this family have it, so the page and `check.sh` drive
+  one implementation rather than two. Its command line and its output are
+  unchanged.
+
 ## [v0.1.0]
 
 First release published to the GWRG distribution spec: alongside the binary the
