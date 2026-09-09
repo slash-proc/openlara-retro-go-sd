@@ -49,7 +49,7 @@ section and uses it as the GitHub Release notes.
   one implementation rather than two. Its command line and its output are
   unchanged.
 
-## [v0.1.0]
+## [v0.0.1]
 
 First release published to the GWRG distribution spec: alongside the binary the
 release now carries a `manifest.json`, an offline bundle and a GitHub Pages
