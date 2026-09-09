@@ -1,72 +1,49 @@
 # Changelog
 
-This file is a template for the single project created from this repo.
-At project setup time you choose exactly one kind by setting `PROJECT_KIND`
-to `core` or `homebrew` (you will only build/release that chosen kind).
-
-Update the content for your project and keep the section heading matching
-the pushed release tag (CI requirement).
-
 This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Release tags must
-match a section heading exactly (for example `v1.0.0`).
+match a section heading exactly (for example `v0.1.0`); CI reads the matching
+section and uses it as the GitHub Release notes.
 
-When you cut a release:
+## [v0.1.0]
 
-1. Move items from `[Unreleased]` into a new `## [vX.Y.Z] - YYYY-MM-DD` section.
-2. Commit the changelog update.
-3. Push the tag: `git tag vX.Y.Z && git push origin vX.Y.Z`
-
-CI reads the matching section and uses it as the GitHub Release notes. The tag
-is also used in staged asset names (`<binary>-<tag>.bin`, `<binary>-<tag>.zip`).
-
-## [Unreleased]
+First release published to the GWRG distribution spec: alongside the binary the
+release now carries a `manifest.json`, an offline bundle and a GitHub Pages
+`dist/` tree, so a catalogue or web installer can find and verify this build
+without being told where to look.
 
 ### Added
 
-- (your changes here)
+- `gwrg.json`, declaring `dataDir: openlara`. OpenLara does not load its levels
+  from beside the binary the way most homebrew do: `src/platform/gnw/os.cpp`
+  searches a compiled-in list of paths, all of them under a folder spelled
+  `openlara`, which matches neither `OpenLara.bin` nor the display name and so
+  cannot be derived by anything reading the manifest.
+- `manifest.json`, the offline bundle and the `dist/` tree, built by the shared
+  `make_manifest.py` / `make_bundle.py` / `build_dist.py`.
+- `print-SIDECARS` and `print-RO_BIN` Makefile targets. This homebrew installs
+  no sidecar, but `stage_release.py` reads the Makefile positionally and a
+  missing target fails the release outright.
 
 ### Changed
 
-- (your changes here)
+- `scripts/stage_release.py` replaced with the shared copy, which understands
+  `SIDECARS` and publishes full-size cover art.
+- `CORE_VERSION` now comes from `git describe --tags --abbrev=0` with a `0.0.0`
+  fallback. Plain `git describe --tags --dirty` yields `v1.2.3-4-gabcdef` on any
+  commit past a tag, and the packer accepts only `X.Y.Z`.
 
 ### Fixed
 
-- (your changes here)
-
-## [v1.0.0] - 2026-08-12
-
-Initial public release for your chosen kind (`core` or `homebrew`).
-
-### Added
-
-- Freestanding Cortex-M7 skeleton (`src/main.c`) with LCD demo, square-wave
-  audio, save/load/screenshot hooks, and watchdog-friendly frame loop.
-- Vendored SDK, linker scripts, and ABI bridge for `gw_firmware_abi_t`.
-- Packaging for both project kinds:
-  - **core** → `pack_core.py`, SD path `/cores/<name>.bin`
-  - **homebrew** → `pack_homebrew.py`, SD path `/homebrews/<name>.bin`
-- Docker builder integration (`make docker`) using `sylverb/retro-go-sd-builder`.
-- CI build on push/PR and automated GitHub Release on `v*` tags.
+- Nothing.
 
 ### Install
 
-Only the section corresponding to your chosen `PROJECT_KIND` is relevant for
-your derived project.
-
-**Core (`PROJECT_KIND=core`, default)**
-
-- Copy `example.bin` to `/cores/` on the SD card.
-- Place test ROMs under `/roms/example/` (dirname matches `CORE_NAME` in the
-  Makefile).
-- Requires firmware whose ABI matches `SDK_VERSION` in this repository.
-
-**Homebrew (`PROJECT_KIND=homebrew`)**
-
-- Set `PROJECT_KIND=homebrew` in the Makefile, rebuild, then copy
-  `ExampleHB.bin` to `/homebrews/`.
-- Optional coverflow override: `/covers/homebrew/ExampleHB.img` (JPEG ≤186×100,
-  ≤10 KiB).
-
-The release archive contains the ready-to-copy SD layout for the active project
-kind only (`cores/` or `homebrews/`).
+- Unzip the release archive onto the SD card root (`homebrews/OpenLara.bin`).
+- Supply your own Tomb Raider data: put the converted `.PKD` levels in
+  `/homebrews/openlara/` and cutscenes in `/homebrews/openlara/fmv/`. The
+  release publishes no game data, and the PHD to PKD converter is not yet part
+  of the manifest — run `scripts/phd_to_pkd.py` locally against a copy of the
+  game you own.
+- Optional coverflow override: `/covers/homebrew/OpenLara.img` (JPEG <=186x100,
+  <=10 KiB).

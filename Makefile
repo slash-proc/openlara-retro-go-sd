@@ -114,11 +114,12 @@ GEN_COVER     := scripts/gen_homebrew_cover.py
 #######################################
 # Packed header version
 #######################################
-# gnw_core_meta_t / gwhb_meta_t only store major.minor.patch (0..255).
-# CORE_VERSION is the full git describe string passed to the packers; they
-# extract the leading vX.Y.Z (NOTAG / missing tags → 0.0.0).
+# gnw_core_meta_t / gwhb_meta_t only store major.minor.patch (0..255), and the
+# packers accept only X.Y.Z with an optional leading v. `git describe` alone
+# yields v1.2.3-4-gabcdef once a commit lands past the tag, which the packer
+# rejects -- so ask for the nearest tag itself and fall back to 0.0.0.
 # Override: make CORE_VERSION=v1.2.3
-CORE_VERSION ?= $(shell git describe --tags --dirty 2>/dev/null || echo NOTAG)
+CORE_VERSION ?= $(shell git describe --tags --abbrev=0 2>/dev/null || echo 0.0.0)
 
 #######################################
 # Pack
@@ -151,12 +152,20 @@ pack: prepare $(TARGET_BIN) $(COVER_JPG)
 
 all: pack
 
-.PHONY: print-PROJECT_KIND print-PACKED_BIN print-CORE_NAME print-DOCKER_IMAGE \
+.PHONY: print-PROJECT_KIND print-PACKED_BIN print-SIDECARS print-RO_BIN print-CORE_NAME print-DOCKER_IMAGE \
 	print-TARGET_ELF print-TARGET_MAP print-CORE_VERSION
 print-PROJECT_KIND:
 	@echo $(PROJECT_KIND)
 print-PACKED_BIN:
 	@echo $(PACKED_BIN)
+# Empty here: only a project that installs a second device file beside
+# its binary sets RO_BIN. The shared stage_release.py reads it for every
+# project so the script itself needs no per-project variant.
+# Extra device files installed beside PACKED_BIN, space separated.
+print-SIDECARS:
+	@echo $(SIDECARS)
+print-RO_BIN:
+	@echo $(RO_BIN)
 print-CORE_NAME:
 	@echo $(CORE_NAME)
 print-DOCKER_IMAGE:
