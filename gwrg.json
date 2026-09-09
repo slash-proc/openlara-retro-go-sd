@@ -1,5 +1,248 @@
 {
-  "$comment": "The hand-written half of this project's manifest. Everything else -- sizes, hashes, the firmware ABI, the display name -- is derived from the built bytes by scripts/make_manifest.py. This release publishes the binary and its metadata only: OpenLara needs Tomb Raider level data the user already owns, converted from PHD to PKD, and that converter is not yet a wasm module, so there is no tool to declare and nothing here claims to produce those files. dataDir is what this project exists to state. src/platform/gnw/os.cpp searches a fixed list of paths for <name>.PKD and every one of them sits under a folder literally spelled 'openlara' -- /homebrews/openlara, /homebrews/openlara/fmv, /homebrews/openlara/data. That name is compiled into the binary and matches neither PACKED_BIN (OpenLara.bin) nor HB_NAME (OpenLara), so nothing can derive it. originalSystem is omitted deliberately: OpenLara is a port of an open-source reimplementation of the Tomb Raider engine, not of any one console release. Tomb Raider 1 shipped on PlayStation, Saturn and DOS at once and the data this reads is whichever of those the user owns, so the field exists to point an art scraper at one library and there is no single right answer to give it. Same reasoning as pong.",
+  "$comment": "The hand-written half of this project's manifest. Everything else -- sizes, hashes, the firmware ABI, the display name, the module's memory ceiling -- is derived from the built bytes by scripts/make_manifest.py. Nothing derivable belongs here. dataDir cannot be derived: src/platform/gnw/os.cpp searches a fixed list of paths for <name>.PKD and every one of them sits under a folder literally spelled 'openlara', which matches neither PACKED_BIN (OpenLara.bin) nor HB_NAME (OpenLara). originalSystem is 'dos' because the .PHD files this converter reads are the PC release's -- the DOS CD, and the same DATA files the GOG and Steam re-releases still ship. Tomb Raider also shipped on PlayStation and Saturn, but those carry their own formats and this tool cannot read them, so the field names the library the data actually comes from.",
   "originalSystem": "dos",
-  "dataDir": "openlara"
+  "dataDir": "openlara",
+  "tool": {
+    "id": "openlara-levels",
+    "title": {
+      "en": "Tomb Raider level conversion",
+      "de": "Tomb-Raider-Level-Konvertierung",
+      "fr": "Conversion des niveaux de Tomb Raider",
+      "es": "Conversión de niveles de Tomb Raider",
+      "pl": "Konwersja poziomów Tomb Raider",
+      "ja": "Tomb Raider レベル変換",
+      "ko": "Tomb Raider 레벨 변환"
+    },
+    "maxOutputBytes": 16777216,
+    "options": [],
+    "inputs": [
+      {
+        "id": "level",
+        "required": true,
+        "allowMultiple": true,
+        "runPerFile": true,
+        "maxCount": 32,
+        "label": {
+          "en": "Tomb Raider level file",
+          "de": "Tomb-Raider-Leveldatei",
+          "fr": "Fichier de niveau Tomb Raider",
+          "es": "Archivo de nivel de Tomb Raider",
+          "pl": "Plik poziomu Tomb Raider",
+          "ja": "Tomb Raider のレベルファイル",
+          "ko": "Tomb Raider 레벨 파일"
+        },
+        "description": {
+          "en": "A .PHD level from a Tomb Raider install you own, in its DATA folder. Each level is converted separately into its own .PKD.",
+          "de": "Eine .PHD-Leveldatei aus einer eigenen Tomb-Raider-Installation, im Ordner DATA. Jedes Level wird einzeln in eine eigene .PKD umgewandelt.",
+          "fr": "Un niveau .PHD provenant d'une installation de Tomb Raider vous appartenant, dans son dossier DATA. Chaque niveau est converti séparément en son propre .PKD.",
+          "es": "Un nivel .PHD de una instalación de Tomb Raider propia, en su carpeta DATA. Cada nivel se convierte por separado en su propio .PKD.",
+          "pl": "Poziom .PHD z posiadanej instalacji Tomb Raider, z folderu DATA. Każdy poziom jest konwertowany osobno do własnego pliku .PKD.",
+          "ja": "所有する Tomb Raider の DATA フォルダーにある .PHD レベルファイル。レベルごとに個別に変換され、それぞれの .PKD になります。",
+          "ko": "보유한 Tomb Raider 설치본의 DATA 폴더에 있는 .PHD 레벨 파일. 레벨마다 개별적으로 변환되어 각각의 .PKD가 됩니다."
+        },
+        "extensions": [
+          ".PHD"
+        ],
+        "maxBytes": 8388608,
+        "strict": false,
+        "$comment": "maxBytes is 8 MiB against a largest retail level of 3,532,024 bytes (LEVEL10C.PHD). strict is false because the module packs an unrecognised level correctly: only GYM, LEVEL1 and LEVEL2 carry hand-listed fixups, so a modified or fan-made .PHD is a file worth trying rather than one to refuse. maxCount is 32 so a whole DATA folder goes in at once -- 21 retail levels, with room for The Unfinished Business. The sha1 values are computed from a retail TR1 PC CD and cross-checked file by file against the sha256 table in tools/extractor/src/level_ids.h, so a variant is declared only for a level the module itself recognises.",
+        "variants": [
+          {
+            "id": "title",
+            "label": {
+              "en": "Title screen"
+            },
+            "sha1": "195678b89b07b0badd5e6786f42e87f9cf7767cd",
+            "bytes": 316460
+          },
+          {
+            "id": "gym",
+            "label": {
+              "en": "Lara's Home"
+            },
+            "sha1": "321ebbda843b519342717c549e932176e41566ee",
+            "bytes": 3237128
+          },
+          {
+            "id": "level1",
+            "label": {
+              "en": "Caves"
+            },
+            "sha1": "80615675d774f027f97f5248fda25671e652294f",
+            "bytes": 2533634
+          },
+          {
+            "id": "level2",
+            "label": {
+              "en": "City of Vilcabamba"
+            },
+            "sha1": "51d727c8ab79695f99dc180742d09819e5d11f6c",
+            "bytes": 2873450
+          },
+          {
+            "id": "level3a",
+            "label": {
+              "en": "Lost Valley"
+            },
+            "sha1": "3e3360f3dc77af843b991f4b87cbcffb6ad49ee0",
+            "bytes": 2934730
+          },
+          {
+            "id": "level3b",
+            "label": {
+              "en": "Tomb of Qualopec"
+            },
+            "sha1": "32711a38d1a72c074780271ebed877bef35ba698",
+            "bytes": 2738258
+          },
+          {
+            "id": "cut1",
+            "label": {
+              "en": "Cutscene 1"
+            },
+            "sha1": "4dc800d8b916f6a03273e928a8102bffa88e97b1",
+            "bytes": 599840
+          },
+          {
+            "id": "level4",
+            "label": {
+              "en": "St. Francis' Folly"
+            },
+            "sha1": "104801785fd070ef6c30df505ec0e4b8999fa928",
+            "bytes": 3030872
+          },
+          {
+            "id": "level5",
+            "label": {
+              "en": "Colosseum"
+            },
+            "sha1": "7bab70337e8030b92fffdbc0e3f88ce72fe95fa8",
+            "bytes": 2718540
+          },
+          {
+            "id": "level6",
+            "label": {
+              "en": "Palace Midas"
+            },
+            "sha1": "1aae45cb4853e7df0e449815b89b622af312bd80",
+            "bytes": 3074376
+          },
+          {
+            "id": "level7a",
+            "label": {
+              "en": "The Cistern"
+            },
+            "sha1": "0af688ea9e62eed8e6c1c46b78e84ec2e82622b8",
+            "bytes": 2817612
+          },
+          {
+            "id": "level7b",
+            "label": {
+              "en": "Tomb of Tihocan"
+            },
+            "sha1": "e409dde360425cbdf6de09dcb5fcdcfad9961709",
+            "bytes": 3389096
+          },
+          {
+            "id": "cut2",
+            "label": {
+              "en": "Cutscene 2"
+            },
+            "sha1": "4d3614fd8b5818fd503c8dd1972c56e9563f19d8",
+            "bytes": 354320
+          },
+          {
+            "id": "level8a",
+            "label": {
+              "en": "City of Khamoon"
+            },
+            "sha1": "2555524c2376f297a6cde1ce0ccfd5afb8f3e9b6",
+            "bytes": 2880564
+          },
+          {
+            "id": "level8b",
+            "label": {
+              "en": "Obelisk of Khamoon"
+            },
+            "sha1": "ddcbca645ee2e5b1aad7215c483d3ce0542a5e9c",
+            "bytes": 2886756
+          },
+          {
+            "id": "level8c",
+            "label": {
+              "en": "Sanctuary of the Scion"
+            },
+            "sha1": "db2c7b05a0f231ea50177123f005f4f249b5a627",
+            "bytes": 3105450
+          },
+          {
+            "id": "level10a",
+            "label": {
+              "en": "Natla's Mines"
+            },
+            "sha1": "de59676468db5e00bff81228f850f49615356377",
+            "bytes": 3224138
+          },
+          {
+            "id": "cut3",
+            "label": {
+              "en": "Cutscene 3"
+            },
+            "sha1": "98a008455035badb6132f11bf348d853f589c963",
+            "bytes": 512104
+          },
+          {
+            "id": "level10b",
+            "label": {
+              "en": "Atlantis"
+            },
+            "sha1": "d3a41770be7f3103bb4a1e5c9dc2c45e2614450b",
+            "bytes": 3094342
+          },
+          {
+            "id": "cut4",
+            "label": {
+              "en": "Cutscene 4"
+            },
+            "sha1": "ef2d1b7b0d2daff3c06b6879d219959a92d8144e",
+            "bytes": 879582
+          },
+          {
+            "id": "level10c",
+            "label": {
+              "en": "The Great Pyramid"
+            },
+            "sha1": "26bcdbae33948a1237fbd96008782c3e2a3dceae",
+            "bytes": 3532024
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "id": "pkd",
+        "extension": ".PKD",
+        "maxBytes": 4194304,
+        "$comment": "Worst case, not the safety ceiling: the largest .PKD any retail level produces is 3,275,296 bytes (LEVEL10C), rounded up to 4 MiB. tool.maxOutputBytes stays the loose limit on what the module may write at all. No filename, because this tool runs once per level and a fixed name would be written 21 times over itself.",
+        "label": {
+          "en": "Packed level",
+          "de": "Gepacktes Level",
+          "fr": "Niveau empaqueté",
+          "es": "Nivel empaquetado",
+          "pl": "Spakowany poziom",
+          "ja": "パック済みレベル",
+          "ko": "패킹된 레벨"
+        },
+        "description": {
+          "en": "The level in the form OpenLara reads on the device.",
+          "de": "Das Level in der Form, die OpenLara auf dem Gerät liest.",
+          "fr": "Le niveau dans la forme que OpenLara lit sur l'appareil.",
+          "es": "El nivel en el formato que OpenLara lee en el dispositivo.",
+          "pl": "Poziom w postaci, którą OpenLara odczytuje na urządzeniu.",
+          "ja": "OpenLara が本体で読み込む形式のレベル。",
+          "ko": "OpenLara가 기기에서 읽는 형식의 레벨."
+        }
+      }
+    ]
+  }
 }

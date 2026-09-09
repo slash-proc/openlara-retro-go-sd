@@ -21,6 +21,67 @@ env:
   DOCKER_IMAGE: sylverb/retro-go-sd-builder:v1.5
 
 jobs:
+  # The level packer, as a wasm module. Independent of the device build, and
+  # gated on the same verifier a browser runs: a module that is not structurally
+  # sandboxed must never reach a manifest, because a manifest is a claim that it
+  # is safe to run.
+  extractor:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/extractor
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # build.sh pulls wasi-sdk as a container pinned by digest and fetch.sh
+      # pulls the upstream packer sources, so nothing is installed on the
+      # runner and the compiler cannot change under a release.
+      #
+      # check.sh builds the module, runs the conformance verifier over it, and
+      # feeds it four malformed .PHD files to prove each comes back as an error
+      # rather than a trap. Given a DATA directory it also compares every level
+      # byte-for-byte against the upstream packer -- that is test-convert.mjs's
+      # job too, and neither can run here: both need real Tomb Raider level
+      # data, which this project cannot ship and CI cannot obtain. They stay
+      # local checks, run before a release is cut:
+      #
+      #   ./check.sh /path/to/TR1_PC/DATA
+      #   node test-convert.mjs /path/to/TR1_PC/DATA
+      - name: Build and check the module
+        run: ./check.sh
+
+      # The page is translated seven ways, so a renamed string is the easiest
+      # thing to ship broken: the page still loads and the control is simply
+      # blank for that language.
+      - name: Page strings resolve in every locale
+        run: node test-i18n.mjs
+
+      # install.mjs decides where every produced file lands. Its own tests,
+      # because a name derived from the user's file is the one part of the
+      # install set no publisher reviewed.
+      - name: Install planning
+        run: node test-install.mjs
+
+      # The page, assembled against a preview dist built from the module just
+      # built, and walked the way app.js walks it. This is the last chance to
+      # catch a page and a manifest that disagree before a tag exists.
+      - name: The page loads what it is given
+        run: |
+          set -euo pipefail
+          ./build-page.sh
+          node test-site.mjs site
+
+      - name: Upload module
+        uses: actions/upload-artifact@v4
+        with:
+          name: extractor-wasm
+          path: tools/extractor/phd_pkd.wasm
+          if-no-files-found: error
+
   build:
     runs-on: ubuntu-latest
     outputs:
@@ -74,7 +135,7 @@ jobs:
 
   release:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    needs: build
+    needs: [build, extractor]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -89,6 +150,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: build-artifacts
+          path: dist
+
+      - name: Download the module
+        uses: actions/download-artifact@v4
+        with:
+          name: extractor-wasm
           path: dist
 
       - name: Stage release assets
@@ -123,6 +190,10 @@ jobs:
           set -euo pipefail
           PACKED_BIN="${{ needs.build.outputs.packed_bin }}"
           TARGET_ELF="${{ needs.build.outputs.target_elf }}"
+          # The converter, published beside the manifest that hashes it. A
+          # target's uses[] is what installs its output; the module itself is
+          # fetched by whatever runs the conversion.
+          cp dist/phd_pkd.wasm release/
           # The ELF, for symbols[]. Published so a crash address can be
           # resolved to a function, and carried in the offline bundle -- but
           # never installed: it is not in the install set and never reaches
@@ -145,6 +216,7 @@ jobs:
           python3 scripts/make_manifest.py \
             --bin "release/${PACKED_BIN}" \
             "${ARTIFACTS[@]}" \
+            --wasm release/phd_pkd.wasm \
             --elf "release/${ELF_NAME}" \
             --tag "${GITHUB_REF_NAME}" \
             --repo "${GITHUB_REPOSITORY}" \
@@ -154,6 +226,7 @@ jobs:
           # Every file the manifest names is fetched off the release by
           # build_dist.py, symbols included.
           echo manifest.json >> release/release-files.txt
+          echo phd_pkd.wasm >> release/release-files.txt
           echo "${ELF_NAME}" >> release/release-files.txt
 
       # The offline bundle. Attached to the release, not built by the Pages job,
@@ -276,6 +349,32 @@ jobs:
             --out _site/dist \
             --retain 5 \
             --require-tag "${GITHUB_REF_NAME}"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # The conversion page, at the site root. The spec leaves the root free for
+      # exactly this, and the page reads the manifest build_dist.py just
+      # mirrored -- the same file, fetched the same way, as any third-party
+      # installer. That is what makes this page a test of the distribution model
+      # rather than a nicety beside it.
+      - name: Build the conversion page
+        run: |
+          set -euo pipefail
+          cd tools/extractor
+          # DIST_DIR is the mirror that already exists, so the page ships the
+          # real published versions instead of the preview dist build-page.sh
+          # would otherwise generate. No MANIFEST_URL: setting it pins the page
+          # to one version and hides the picker, so a release would need a
+          # redeploy to be offered.
+          DIST_DIR="${GITHUB_WORKSPACE}/_site/dist" \
+            VERSIONS_URL="dist/versions.json" ./build-page.sh
+          node test-site.mjs site
+          cp -r site/. "${GITHUB_WORKSPACE}/_site/"
+
+      - name: Show what will be published
+        run: find _site -maxdepth 2 -printf "%P\n" | sort
 
       # Pages must already be enabled on the repository (Settings -> Pages ->
       # Source: GitHub Actions). `enablement: true` cannot do it: creating a

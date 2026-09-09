@@ -16,11 +16,29 @@
 //   - no em dashes anywhere. Break the sentence or use a comma.
 //   - translations are written the way someone would actually speak. German in
 //     particular should not chain every proper noun into one compound.
+//   - no second person anywhere, in any language. Labels name the thing, not
+//     what the reader should do to it: German and French use the infinitive,
+//     Spanish the infinitive or an impersonal, Polish a verbal noun rather than
+//     an imperative, Japanese です・ます or a plain noun, Korean -기 / 합니다.
+//   - counts are formatted with the locale's own tag, so a thousands separator
+//     is the one that language uses.
+//   - plural branches are the language's own. Polish needs three forms and gets
+//     plForm below; Japanese and Korean inflect no plural at all, so their
+//     strings simply state the number and the noun stays as it is.
 
+// The languages the web builder actually offers, in the order it lists them,
+// each labelled with its own native name. SUPPORTED_LOCALES over there declares
+// fourteen, but only these seven have strings and only these seven survive its
+// isRegistered() filter, so a visitor cannot pick any of the rest. Shipping the
+// others empty would put a language in this menu that renders as English.
 export const SUPPORTED = [
   { code: "en", label: "English" },
-  { code: "fr", label: "Français" },
   { code: "de", label: "Deutsch" },
+  { code: "fr", label: "Français" },
+  { code: "es", label: "Español" },
+  { code: "pl", label: "Polski" },
+  { code: "ja", label: "日本語" },
+  { code: "ko", label: "한국어" },
 ];
 
 // English is the base. Every other locale below is a translation of exactly
@@ -373,7 +391,456 @@ const de = {
   },
 };
 
-const STRINGS = { en, fr, de };
+// Polish counts in three: one, a "few" (2 to 4, excluding the teens), and the
+// rest, which takes the genitive plural. Copying English's one/other shape here
+// would misdeclense two thirds of the numbers this page shows.
+const plForm = (n, one, few, many) =>
+  n === 1 ? one
+    : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? few
+      : many;
+
+const es = {
+  app: {
+    heading: (title) => `Conversor de niveles de ${title}`,
+    lede: (game, ext) =>
+      `Convierte niveles de ${game} en los archivos ${ext} que lee este port`,
+  },
+  lang: {
+    label: "Idioma",
+    aria: "Elegir el idioma de esta página",
+  },
+  io: {
+    input: "Entrada",
+    output: "Salida",
+  },
+  why: {
+    label: "Qué hace esta página",
+    text: "Todo ocurre en el navegador. No se envía ningún archivo del juego.",
+  },
+  input: {
+    heading: "Carpeta del juego",
+    chooseFolder: "Elegir carpeta",
+    chooseFiles: "Elegir archivos",
+    scanning: (n) => `${n} archivo${n === 1 ? "" : "s"}`,
+    reading: (name) => name,
+    bytes: (n) => `${n.toLocaleString("es-ES")} bytes`,
+    detail: (n) => `Detalle por nivel, ${n} nivel${n === 1 ? "" : "es"}`,
+    foundCount: (n, ignored, root) =>
+      `${n} nivel${n === 1 ? "" : "es"} encontrado${n === 1 ? "" : "s"}${root ? ` en ${root}` : ""}` +
+      (ignored ? `, y ${ignored} archivo${ignored === 1 ? "" : "s"} más omitido${ignored === 1 ? "" : "s"}.` : "."),
+    noneFound: (exts, where, n) =>
+      `Ningún archivo ${exts} en ${where}, de ${n} archivo${n === 1 ? "" : "s"}. ` +
+      `Elegir la carpeta donde está instalado Tomb Raider, o el propio CD.`,
+    theSelection: "la selección",
+    recognised: "versión conocida",
+    unknownYet: "versión desconocida",
+    duplicateStem: (stem, kept) =>
+      `otra copia de ${stem}; se convierte ${kept}, ya que ambas se escribirían con ` +
+      `el mismo nombre. Elegir una carpeta más concreta si no es la correcta.`,
+    notRecognised: (sha1) => `no es una versión que acepte este convertidor (SHA-1 ${sha1}).`,
+    tooLarge: (size, max) => `${size} bytes, más de los ${max} que puede ocupar un nivel.`,
+    unusableName: (why) => `no puede llamarse así en la tarjeta: ${why}.`,
+    tooMany: (n, max) =>
+      `${n} niveles son más de los ${max} que esta versión convierte de una vez. ` +
+      `Elegir una carpeta con menos.`,
+  },
+  run: {
+    heading: "Convertir",
+    button: "Convertir",
+    converting: (i, n, name) => `${name}, ${i} de ${n}`,
+    timedOut: (name) => `${name} ha tardado demasiado y se ha detenido.`,
+    done: (n) => `${n} archivo${n === 1 ? "" : "s"} listo${n === 1 ? "" : "s"}.`,
+    failed: (name, msg) => `No se ha podido convertir ${name}: ${msg}`,
+    tooBig: (name, size, max) =>
+      `${name} ha resultado de ${size} bytes, más de los ${max} que permite su manifiesto.`,
+  },
+  version: {
+    label: "Versión",
+    showPrereleases: "Mostrar versiones preliminares",
+    prerelease: "versión preliminar",
+    abi: (version, minSize) => `ABI de firmware ${version}+ (${minSize} bytes)`,
+    retained: (n) => `Las ${n} versiones más recientes.`,
+    olderReleases: "Versiones anteriores",
+    pinned: (tag) => `Versión ${tag}`,
+    noConverter: "Esta versión no necesita conversión: instalar los archivos publicados tal cual.",
+  },
+  zip: {
+    button: (n, size) =>
+      `Descargar el archivo de instalación (${n} archivo${n === 1 ? "" : "s"}, ${size})`,
+    note: (binaries, dir, n) =>
+      `Un solo archivo comprimido, ya ordenado para la tarjeta: ${binaries}, y ${n} nivel` +
+      `${n === 1 ? "" : "es"} en ${dir}`,
+    building: "Creando el archivo comprimido",
+    ready: (name, bytes) => `${name} guardado, ${bytes.toLocaleString("es-ES")} bytes.`,
+    failed: (msg) => `No se ha podido crear el archivo comprimido: ${msg}`,
+    fetchFailed: (name, status) => `no se ha podido obtener ${name} (${status})`,
+    sizeMismatch: (name, got, want) =>
+      `${name} tiene ${got} bytes, pero su manifiesto indica ${want}`,
+    hashMismatch: (name) => `${name} no coincide con la huella de su manifiesto`,
+  },
+  results: {
+    heading: "Archivos convertidos",
+    bytes: (n) => `${n.toLocaleString("es-ES")} bytes`,
+    mb: (n) => `${n.toLocaleString("es-ES", { maximumFractionDigits: 1 })} MB`,
+    summary: (n) => `Detalle por archivo, ${n} archivo${n === 1 ? "" : "s"}`,
+    colSource: "Nivel",
+    colFile: "Salida",
+    colStatus: "Estado",
+    colSize: "Tamaño",
+    hash: "SHA-256",
+    colDownload: "Descarga",
+    save: "Guardar",
+    converted: "Convertido",
+    known: "Versión conocida",
+    unknown: "Versión desconocida",
+    failed: "Error",
+  },
+  footer: {
+    source: "Código fuente y documentación:",
+    repo: "el repositorio del proyecto",
+    published: "Esta página se publica desde la misma ejecución de CI que compila y " +
+      "verifica el módulo, así que ambos coinciden siempre.",
+  },
+  fatal: {
+    cannotRun: (msg) => `Esta página no puede funcionar: ${msg}`,
+    noManifest: "no se ha podido cargar el manifiesto del convertidor",
+    noVersions: "este sitio no publica ninguna versión",
+    mismatch: "el convertidor no coincide con su manifiesto",
+    unsafe: (errs) => `el convertidor no ha superado las comprobaciones de seguridad: ${errs}`,
+  },
+};
+
+const pl = {
+  app: {
+    heading: (title) => `Konwerter poziomów ${title}`,
+    lede: (game, ext) =>
+      `Konwertuje poziomy ${game} na pliki ${ext}, które odczytuje ten port`,
+  },
+  lang: {
+    label: "Język",
+    aria: "Wybór języka tej strony",
+  },
+  io: {
+    input: "Wejście",
+    output: "Wyjście",
+  },
+  why: {
+    label: "Co robi ta strona",
+    text: "Wszystko dzieje się w przeglądarce. Żadne pliki gry nie są nigdzie wysyłane.",
+  },
+  input: {
+    heading: "Folder gry",
+    chooseFolder: "Wybór folderu",
+    chooseFiles: "Wybór plików",
+    scanning: (n) => `${n} ${plForm(n, "plik", "pliki", "plików")}`,
+    reading: (name) => name,
+    bytes: (n) => `${n.toLocaleString("pl-PL")} ${plForm(n, "bajt", "bajty", "bajtów")}`,
+    detail: (n) => `Szczegóły poziomów, ${n} ${plForm(n, "poziom", "poziomy", "poziomów")}`,
+    foundCount: (n, ignored, root) =>
+      `Znaleziono ${n} ${plForm(n, "poziom", "poziomy", "poziomów")}${root ? ` w ${root}` : ""}` +
+      (ignored ? `, pominięto ${ignored} ${plForm(ignored, "inny plik", "inne pliki", "innych plików")}.` : "."),
+    noneFound: (exts, where, n) =>
+      `Brak plików ${exts} w ${where}, spośród ${n} ${plForm(n, "pliku", "plików", "plików")}. ` +
+      `Należy wybrać folder, w którym zainstalowano Tomb Raider, albo samą płytę CD.`,
+    theSelection: "wybranych plikach",
+    recognised: "znane wydanie",
+    unknownYet: "nieznane wydanie",
+    duplicateStem: (stem, kept) =>
+      `kolejna kopia ${stem}; konwertowany jest ${kept}, ponieważ obie zostałyby zapisane ` +
+      `pod tą samą nazwą. Przy złym wyborze należy wskazać węższy folder.`,
+    notRecognised: (sha1) => `wydanie nieprzyjmowane przez tę wersję (SHA-1 ${sha1}).`,
+    tooLarge: (size, max) => `${size} bajtów, więcej niż ${max} dopuszczalne dla poziomu.`,
+    unusableName: (why) => `nie może mieć takiej nazwy na karcie: ${why}.`,
+    tooMany: (n, max) =>
+      `${n} ${plForm(n, "poziom", "poziomy", "poziomów")} to więcej niż ${max}, ` +
+      `ile ta wersja konwertuje naraz. Należy wskazać folder z mniejszą ich liczbą.`,
+  },
+  run: {
+    heading: "Konwersja",
+    button: "Konwersja",
+    converting: (i, n, name) => `${name}, ${i} z ${n}`,
+    timedOut: (name) => `${name} trwał zbyt długo i został przerwany.`,
+    done: (n) => `Gotowe: ${n} ${plForm(n, "plik", "pliki", "plików")}.`,
+    failed: (name, msg) => `Nie udało się przekonwertować ${name}: ${msg}`,
+    tooBig: (name, size, max) =>
+      `${name} ma ${size} bajtów, więcej niż ${max} dozwolone przez manifest.`,
+  },
+  version: {
+    label: "Wersja",
+    showPrereleases: "Wersje wstępne",
+    prerelease: "wersja wstępna",
+    abi: (version, minSize) => `ABI firmware ${version}+ (${minSize} bajtów)`,
+    retained: (n) => `${n} ${plForm(n, "najnowsza wersja", "najnowsze wersje", "najnowszych wersji")}.`,
+    olderReleases: "Starsze wersje",
+    pinned: (tag) => `Wersja ${tag}`,
+    noConverter: "Ta wersja nie wymaga konwersji: opublikowane pliki instaluje się bez zmian.",
+  },
+  zip: {
+    button: (n, size) =>
+      `Archiwum instalacyjne do pobrania (${n} ${plForm(n, "plik", "pliki", "plików")}, ${size})`,
+    note: (binaries, dir, n) =>
+      `Jedno archiwum, ułożone pod kartę: ${binaries} oraz ${n} ` +
+      `${plForm(n, "poziom", "poziomy", "poziomów")} w ${dir}`,
+    building: "Pakowanie archiwum",
+    ready: (name, bytes) =>
+      `Zapisano ${name}, ${bytes.toLocaleString("pl-PL")} ${plForm(bytes, "bajt", "bajty", "bajtów")}.`,
+    failed: (msg) => `Nie udało się utworzyć archiwum: ${msg}`,
+    fetchFailed: (name, status) => `nie udało się pobrać ${name} (${status})`,
+    sizeMismatch: (name, got, want) =>
+      `${name} ma ${got} bajtów, a manifest podaje ${want}`,
+    hashMismatch: (name) => `${name} nie zgadza się z sumą kontrolną z manifestu`,
+  },
+  results: {
+    heading: "Przekonwertowane pliki",
+    bytes: (n) => `${n.toLocaleString("pl-PL")} ${plForm(n, "bajt", "bajty", "bajtów")}`,
+    mb: (n) => `${n.toLocaleString("pl-PL", { maximumFractionDigits: 1 })} MB`,
+    summary: (n) => `Szczegóły plików, ${n} ${plForm(n, "plik", "pliki", "plików")}`,
+    colSource: "Poziom",
+    colFile: "Wyjście",
+    colStatus: "Stan",
+    colSize: "Rozmiar",
+    hash: "SHA-256",
+    colDownload: "Pobieranie",
+    save: "Zapis",
+    converted: "Przekonwertowany",
+    known: "Znane wydanie",
+    unknown: "Nieznane wydanie",
+    failed: "Niepowodzenie",
+  },
+  footer: {
+    source: "Kod źródłowy i dokumentacja:",
+    repo: "repozytorium projektu",
+    published: "Ta strona jest publikowana przez ten sam przebieg CI, który buduje i " +
+      "weryfikuje moduł, więc oba zawsze do siebie pasują.",
+  },
+  fatal: {
+    cannotRun: (msg) => `Ta strona nie może działać: ${msg}`,
+    noManifest: "nie udało się wczytać manifestu konwertera",
+    noVersions: "ta witryna nie publikuje żadnych wersji",
+    mismatch: "konwerter nie zgadza się ze swoim manifestem",
+    unsafe: (errs) => `konwerter nie przeszedł kontroli bezpieczeństwa: ${errs}`,
+  },
+};
+
+const ja = {
+  app: {
+    heading: (title) => `${title} レベルコンバーター`,
+    lede: (game, ext) =>
+      `${game} のレベルを、この移植版が読み込む ${ext} ファイルに変換します`,
+  },
+  lang: {
+    label: "言語",
+    aria: "このページの言語を選択",
+  },
+  io: {
+    input: "入力",
+    output: "出力",
+  },
+  why: {
+    label: "このページの動作",
+    text: "処理はブラウザー内で完結します。ゲームファイルはどこにも送信されません。",
+  },
+  input: {
+    heading: "ゲームフォルダー",
+    chooseFolder: "フォルダーを選択",
+    chooseFiles: "ファイルを選択",
+    scanning: (n) => `${n} 個のファイル`,
+    reading: (name) => name,
+    bytes: (n) => `${n.toLocaleString("ja-JP")} バイト`,
+    detail: (n) => `レベルごとの詳細（${n} 件）`,
+    foundCount: (n, ignored, root) =>
+      `${root ? `${root} で ` : ""}${n} 個のレベルを検出` +
+      (ignored ? `、他の ${ignored} 個のファイルは対象外です。` : "しました。"),
+    noneFound: (exts, where, n) =>
+      `${where} の ${n} 個のファイルの中に ${exts} ファイルはありません。` +
+      `Tomb Raider をインストールしたフォルダー、または CD そのものを選択してください。`,
+    theSelection: "選択範囲",
+    recognised: "既知のリリース",
+    unknownYet: "未知のリリース",
+    duplicateStem: (stem, kept) =>
+      `${stem} の別のコピーです。どちらも同じ名前で書き出されるため、${kept} を変換します。` +
+      `こちらが誤りであれば、より狭いフォルダーを選択してください。`,
+    notRecognised: (sha1) => `このバージョンが受け付けるリリースではありません（SHA-1 ${sha1}）。`,
+    tooLarge: (size, max) => `${size} バイトで、レベル 1 つの上限 ${max} を超えています。`,
+    unusableName: (why) => `カード上でこの名前は使えません: ${why}。`,
+    tooMany: (n, max) =>
+      `${n} 個のレベルは、このバージョンが一度に変換できる ${max} 個を超えています。` +
+      `より少ないフォルダーを選択してください。`,
+  },
+  run: {
+    heading: "変換",
+    button: "変換",
+    converting: (i, n, name) => `${name}（${n} 件中 ${i} 件目）`,
+    timedOut: (name) => `${name} は時間がかかりすぎたため中止しました。`,
+    done: (n) => `${n} 個のファイルが完成しました。`,
+    failed: (name, msg) => `${name} を変換できませんでした: ${msg}`,
+    tooBig: (name, size, max) =>
+      `${name} は ${size} バイトで、マニフェストが許可する ${max} を超えています。`,
+  },
+  version: {
+    label: "バージョン",
+    showPrereleases: "プレリリースを表示",
+    prerelease: "プレリリース",
+    abi: (version, minSize) => `ファームウェア ABI ${version} 以降（${minSize} バイト）`,
+    retained: (n) => `最新の ${n} 件のリリースを表示しています。`,
+    olderReleases: "以前のリリース",
+    pinned: (tag) => `バージョン ${tag}`,
+    noConverter: "このバージョンに変換は不要です。公開されたファイルをそのままインストールしてください。",
+  },
+  zip: {
+    button: (n, size) => `インストール用 zip をダウンロード（${n} 個のファイル、${size}）`,
+    note: (binaries, dir, n) =>
+      `カード用に配置済みの zip が 1 つ: ${binaries}、および ${dir} 内の ${n} 個のレベル`,
+    building: "アーカイブを作成中",
+    ready: (name, bytes) =>
+      `${name} を保存しました（${bytes.toLocaleString("ja-JP")} バイト）。`,
+    failed: (msg) => `zip を作成できませんでした: ${msg}`,
+    fetchFailed: (name, status) => `${name} を取得できませんでした（${status}）`,
+    sizeMismatch: (name, got, want) =>
+      `${name} は ${got} バイトですが、マニフェストには ${want} とあります`,
+    hashMismatch: (name) => `${name} はマニフェストのハッシュと一致しません`,
+  },
+  results: {
+    heading: "変換済みファイル",
+    bytes: (n) => `${n.toLocaleString("ja-JP")} バイト`,
+    mb: (n) => `${n.toLocaleString("ja-JP", { maximumFractionDigits: 1 })} MB`,
+    summary: (n) => `ファイルごとの詳細（${n} 件）`,
+    colSource: "レベル",
+    colFile: "出力",
+    colStatus: "状態",
+    colSize: "サイズ",
+    hash: "SHA-256",
+    colDownload: "ダウンロード",
+    save: "保存",
+    converted: "変換済み",
+    known: "既知のリリース",
+    unknown: "未知のリリース",
+    failed: "失敗",
+  },
+  footer: {
+    source: "ソースコードとドキュメント:",
+    repo: "プロジェクトのリポジトリ",
+    published: "このページは、モジュールをビルドして検証するのと同じ CI 実行から公開されるため、" +
+      "両者は常に一致します。",
+  },
+  fatal: {
+    cannotRun: (msg) => `このページは動作できません: ${msg}`,
+    noManifest: "コンバーターのマニフェストを読み込めませんでした",
+    noVersions: "このサイトはバージョンを公開していません",
+    mismatch: "コンバーターがマニフェストと一致しません",
+    unsafe: (errs) => `コンバーターが安全性チェックに合格しませんでした: ${errs}`,
+  },
+};
+
+const ko = {
+  app: {
+    heading: (title) => `${title} 레벨 변환기`,
+    lede: (game, ext) => `${game} 레벨을 이 이식판이 읽는 ${ext} 파일로 변환합니다`,
+  },
+  lang: {
+    label: "언어",
+    aria: "이 페이지의 언어 선택",
+  },
+  io: {
+    input: "입력",
+    output: "출력",
+  },
+  why: {
+    label: "이 페이지가 하는 일",
+    text: "브라우저 안에서 처리됩니다. 게임 파일은 어디에도 업로드되지 않습니다.",
+  },
+  input: {
+    heading: "게임 폴더",
+    chooseFolder: "폴더 선택",
+    chooseFiles: "파일 선택",
+    scanning: (n) => `파일 ${n}개`,
+    reading: (name) => name,
+    bytes: (n) => `${n.toLocaleString("ko-KR")}바이트`,
+    detail: (n) => `레벨별 세부 정보, ${n}개`,
+    foundCount: (n, ignored, root) =>
+      `${root ? `${root}에서 ` : ""}레벨 ${n}개 발견` +
+      (ignored ? `, 다른 파일 ${ignored}개는 제외했습니다.` : "했습니다."),
+    noneFound: (exts, where, n) =>
+      `${where}의 파일 ${n}개 중에 ${exts} 파일이 없습니다. ` +
+      `Tomb Raider가 설치된 폴더 또는 CD 자체를 선택하십시오.`,
+    theSelection: "선택 항목",
+    recognised: "알려진 릴리스",
+    unknownYet: "알려지지 않은 릴리스",
+    duplicateStem: (stem, kept) =>
+      `${stem}의 또 다른 사본입니다. 둘 다 같은 이름으로 기록되므로 ${kept}을 변환합니다. ` +
+      `잘못된 쪽이라면 더 좁은 폴더를 선택하십시오.`,
+    notRecognised: (sha1) => `이 버전이 받아들이는 릴리스가 아닙니다(SHA-1 ${sha1}).`,
+    tooLarge: (size, max) => `${size}바이트로, 레벨 하나의 상한 ${max}을 넘습니다.`,
+    unusableName: (why) => `카드에서 이 이름은 쓸 수 없습니다: ${why}.`,
+    tooMany: (n, max) =>
+      `레벨 ${n}개는 이 버전이 한 번에 변환하는 ${max}개보다 많습니다. ` +
+      `더 적게 담긴 폴더를 선택하십시오.`,
+  },
+  run: {
+    heading: "변환",
+    button: "변환",
+    converting: (i, n, name) => `${name}, ${n}개 중 ${i}번째`,
+    timedOut: (name) => `${name}이 너무 오래 걸려 중단되었습니다.`,
+    done: (n) => `파일 ${n}개가 준비되었습니다.`,
+    failed: (name, msg) => `${name}을 변환하지 못했습니다: ${msg}`,
+    tooBig: (name, size, max) =>
+      `${name}이 ${size}바이트로, 매니페스트가 허용하는 ${max}을 넘습니다.`,
+  },
+  version: {
+    label: "버전",
+    showPrereleases: "시험판 표시",
+    prerelease: "시험판",
+    abi: (version, minSize) => `펌웨어 ABI ${version} 이상(${minSize}바이트)`,
+    retained: (n) => `최근 릴리스 ${n}개를 표시합니다.`,
+    olderReleases: "이전 릴리스",
+    pinned: (tag) => `버전 ${tag}`,
+    noConverter: "이 버전은 변환이 필요 없습니다. 공개된 파일을 그대로 설치하십시오.",
+  },
+  zip: {
+    button: (n, size) => `설치용 zip 내려받기(파일 ${n}개, ${size})`,
+    note: (binaries, dir, n) =>
+      `카드에 맞게 정리된 zip 하나: ${binaries}, 그리고 ${dir} 안의 레벨 ${n}개`,
+    building: "아카이브 압축 중",
+    ready: (name, bytes) => `${name} 저장됨, ${bytes.toLocaleString("ko-KR")}바이트.`,
+    failed: (msg) => `zip을 만들지 못했습니다: ${msg}`,
+    fetchFailed: (name, status) => `${name}을 가져오지 못했습니다(${status})`,
+    sizeMismatch: (name, got, want) =>
+      `${name}은 ${got}바이트이지만 매니페스트에는 ${want}로 적혀 있습니다`,
+    hashMismatch: (name) => `${name}이 매니페스트의 해시와 일치하지 않습니다`,
+  },
+  results: {
+    heading: "변환된 파일",
+    bytes: (n) => `${n.toLocaleString("ko-KR")}바이트`,
+    mb: (n) => `${n.toLocaleString("ko-KR", { maximumFractionDigits: 1 })} MB`,
+    summary: (n) => `파일별 세부 정보, ${n}개`,
+    colSource: "레벨",
+    colFile: "출력",
+    colStatus: "상태",
+    colSize: "크기",
+    hash: "SHA-256",
+    colDownload: "내려받기",
+    save: "저장",
+    converted: "변환됨",
+    known: "알려진 릴리스",
+    unknown: "알려지지 않은 릴리스",
+    failed: "실패",
+  },
+  footer: {
+    source: "소스 코드와 문서:",
+    repo: "프로젝트 저장소",
+    published: "이 페이지는 모듈을 빌드하고 검증하는 것과 같은 CI 실행에서 게시되므로 " +
+      "둘은 항상 일치합니다.",
+  },
+  fatal: {
+    cannotRun: (msg) => `이 페이지를 실행할 수 없습니다: ${msg}`,
+    noManifest: "변환기의 매니페스트를 불러오지 못했습니다",
+    noVersions: "이 사이트는 게시된 버전이 없습니다",
+    mismatch: "변환기가 매니페스트와 일치하지 않습니다",
+    unsafe: (errs) => `변환기가 안전성 검사를 통과하지 못했습니다: ${errs}`,
+  },
+};
+
+const STRINGS = { en, de, fr, es, pl, ja, ko };
 
 // Fall back key by key rather than whole-locale, so a partial translation
 // degrades to English only where it is actually missing.
@@ -432,7 +899,7 @@ export function onLocaleChange(fn) {
 
 /**
  * Reads a localised string out of the manifest, which stores them as
- * `{en, fr, de}` objects. Plain strings are passed through so a manifest that
+ * `{en, de, fr, ...}` objects, keyed by the same codes SUPPORTED lists. Plain strings are passed through so a manifest that
  * has not been localised still renders.
  */
 export function localeText(value) {

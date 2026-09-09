@@ -9,6 +9,22 @@ section and uses it as the GitHub Release notes.
 
 ### Added
 
+- The `tool` block in `gwrg.json`, so a published manifest declares the level
+  converter rather than only the binary. One input that runs per file and one
+  output that derives its name from it, plus a variant for each of the 21 levels
+  a retail Tomb Raider 1 PC release ships. The SHA-1 values are computed from
+  those files and each was cross-checked against the SHA-256 table in
+  `tools/extractor/src/level_ids.h`, so the manifest recognises exactly what the
+  module recognises and nothing more.
+- The converter half of `.github/workflows/ci.yml`: an `extractor` job that
+  builds the module, runs its checks, assembles the page and walks the
+  assembled site, then attaches the `.wasm` to the release and passes it to
+  `make_manifest.py`, with the Pages job rebuilding the page against the dist
+  tree it just mirrored.
+- Four more page translations, for the seven languages the web builder actually
+  offers: Spanish, Polish, Japanese and Korean beside the existing English,
+  German and French.
+
 - A browser conversion page under `tools/extractor/page/`. The user points it at
   a Tomb Raider 1 install, it finds the `.PHD` files anywhere in the tree, runs
   the wasm packer once per level in a worker, and hands back one zip already
