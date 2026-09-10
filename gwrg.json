@@ -1,5 +1,4 @@
 {
-  "$comment": "The hand-written half of this project's manifest. Everything else -- sizes, hashes, the firmware ABI, the display name, the module's memory ceiling -- is derived from the built bytes by scripts/make_manifest.py. Nothing derivable belongs here. dataDir cannot be derived: src/platform/gnw/os.cpp searches a fixed list of paths for <name>.PKD and every one of them sits under a folder literally spelled 'openlara', which matches neither PACKED_BIN (OpenLara.bin) nor HB_NAME (OpenLara). originalSystem is 'dos' because the .PHD files this converter reads are the PC release's -- the DOS CD, and the same DATA files the GOG and Steam re-releases still ship. Tomb Raider also shipped on PlayStation and Saturn, but those carry their own formats and this tool cannot read them, so the field names the library the data actually comes from.",
   "originalSystem": "dos",
   "dataDir": "openlara",
   "tool": {
@@ -45,7 +44,7 @@
         ],
         "maxBytes": 8388608,
         "strict": false,
-        "$comment": "maxBytes is 8 MiB against a largest retail level of 3,532,024 bytes (LEVEL10C.PHD). strict is false because the module packs an unrecognised level correctly: only GYM, LEVEL1 and LEVEL2 carry hand-listed fixups, so a modified or fan-made .PHD is a file worth trying rather than one to refuse. maxCount is 32 so a whole DATA folder goes in at once -- 21 retail levels, with room for The Unfinished Business. The sha1 values are computed from a retail TR1 PC CD and cross-checked file by file against the sha256 table in tools/extractor/src/level_ids.h, so a variant is declared only for a level the module itself recognises.",
+        "$comment": "maxBytes covers the largest retail level, LEVEL10C.PHD at 3,532,024 bytes. maxCount 32 fits a whole DATA folder: 21 retail levels, with room for The Unfinished Business. strict is false because only GYM, LEVEL1 and LEVEL2 carry fixups, so an unrecognised level still packs correctly. The sha1 values come from a retail TR1 PC CD, cross-checked against the sha256 table in tools/extractor/src/level_ids.h.",
         "variants": [
           {
             "id": "title",
@@ -223,7 +222,7 @@
         "id": "pkd",
         "extension": ".PKD",
         "maxBytes": 4194304,
-        "$comment": "Worst case, not the safety ceiling: the largest .PKD any retail level produces is 3,275,296 bytes (LEVEL10C), rounded up to 4 MiB. tool.maxOutputBytes stays the loose limit on what the module may write at all. No filename, because this tool runs once per level and a fixed name would be written 21 times over itself.",
+        "$comment": "Largest retail output is 3,275,296 bytes (LEVEL10C), rounded to 4 MiB. No filename: this tool runs once per level, so a fixed name would be written 21 times over itself.",
         "label": {
           "en": "Packed level",
           "de": "Gepacktes Level",
@@ -244,5 +243,6 @@
         }
       }
     ]
-  }
+  },
+  "$comment": "dataDir is 'openlara' because src/platform/gnw/os.cpp searches that literal folder name, which matches neither PACKED_BIN (OpenLara.bin) nor HB_NAME (OpenLara). originalSystem is 'dos' because the .PHD files this converter reads are the PC release's; the PlayStation and Saturn discs carry formats it cannot read."
 }
