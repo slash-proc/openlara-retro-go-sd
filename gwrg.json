@@ -1,5 +1,6 @@
 {
   "originalSystem": "dos",
+  "originalName": "Tomb Raider",
   "dataDir": "openlara",
   "tool": {
     "id": "openlara-levels",
@@ -7,10 +8,10 @@
       "en": "Tomb Raider level conversion",
       "de": "Tomb-Raider-Level-Konvertierung",
       "fr": "Conversion des niveaux de Tomb Raider",
-      "es": "Conversión de niveles de Tomb Raider",
-      "pl": "Konwersja poziomów Tomb Raider",
-      "ja": "Tomb Raider レベル変換",
-      "ko": "Tomb Raider 레벨 변환"
+      "es": "Conversi\u00f3n de niveles de Tomb Raider",
+      "pl": "Konwersja poziom\u00f3w Tomb Raider",
+      "ja": "Tomb Raider \u30ec\u30d9\u30eb\u5909\u63db",
+      "ko": "Tomb Raider \ub808\ubca8 \ubcc0\ud658"
     },
     "maxOutputBytes": 16777216,
     "options": [],
@@ -27,17 +28,17 @@
           "fr": "Fichier de niveau Tomb Raider",
           "es": "Archivo de nivel de Tomb Raider",
           "pl": "Plik poziomu Tomb Raider",
-          "ja": "Tomb Raider のレベルファイル",
-          "ko": "Tomb Raider 레벨 파일"
+          "ja": "Tomb Raider \u306e\u30ec\u30d9\u30eb\u30d5\u30a1\u30a4\u30eb",
+          "ko": "Tomb Raider \ub808\ubca8 \ud30c\uc77c"
         },
         "description": {
           "en": "A .PHD level from a Tomb Raider install you own, in its DATA folder. Each level is converted separately into its own .PKD.",
           "de": "Eine .PHD-Leveldatei aus einer eigenen Tomb-Raider-Installation, im Ordner DATA. Jedes Level wird einzeln in eine eigene .PKD umgewandelt.",
-          "fr": "Un niveau .PHD provenant d'une installation de Tomb Raider vous appartenant, dans son dossier DATA. Chaque niveau est converti séparément en son propre .PKD.",
-          "es": "Un nivel .PHD de una instalación de Tomb Raider propia, en su carpeta DATA. Cada nivel se convierte por separado en su propio .PKD.",
-          "pl": "Poziom .PHD z posiadanej instalacji Tomb Raider, z folderu DATA. Każdy poziom jest konwertowany osobno do własnego pliku .PKD.",
-          "ja": "所有する Tomb Raider の DATA フォルダーにある .PHD レベルファイル。レベルごとに個別に変換され、それぞれの .PKD になります。",
-          "ko": "보유한 Tomb Raider 설치본의 DATA 폴더에 있는 .PHD 레벨 파일. 레벨마다 개별적으로 변환되어 각각의 .PKD가 됩니다."
+          "fr": "Un niveau .PHD provenant d'une installation de Tomb Raider vous appartenant, dans son dossier DATA. Chaque niveau est converti s\u00e9par\u00e9ment en son propre .PKD.",
+          "es": "Un nivel .PHD de una instalaci\u00f3n de Tomb Raider propia, en su carpeta DATA. Cada nivel se convierte por separado en su propio .PKD.",
+          "pl": "Poziom .PHD z posiadanej instalacji Tomb Raider, z folderu DATA. Ka\u017cdy poziom jest konwertowany osobno do w\u0142asnego pliku .PKD.",
+          "ja": "\u6240\u6709\u3059\u308b Tomb Raider \u306e DATA \u30d5\u30a9\u30eb\u30c0\u30fc\u306b\u3042\u308b .PHD \u30ec\u30d9\u30eb\u30d5\u30a1\u30a4\u30eb\u3002\u30ec\u30d9\u30eb\u3054\u3068\u306b\u500b\u5225\u306b\u5909\u63db\u3055\u308c\u3001\u305d\u308c\u305e\u308c\u306e .PKD \u306b\u306a\u308a\u307e\u3059\u3002",
+          "ko": "\ubcf4\uc720\ud55c Tomb Raider \uc124\uce58\ubcf8\uc758 DATA \ud3f4\ub354\uc5d0 \uc788\ub294 .PHD \ub808\ubca8 \ud30c\uc77c. \ub808\ubca8\ub9c8\ub2e4 \uac1c\ubcc4\uc801\uc73c\ub85c \ubcc0\ud658\ub418\uc5b4 \uac01\uac01\uc758 .PKD\uac00 \ub429\ub2c8\ub2e4."
         },
         "extensions": [
           ".PHD"
@@ -226,23 +227,23 @@
         "label": {
           "en": "Packed level",
           "de": "Gepacktes Level",
-          "fr": "Niveau empaqueté",
+          "fr": "Niveau empaquet\u00e9",
           "es": "Nivel empaquetado",
           "pl": "Spakowany poziom",
-          "ja": "パック済みレベル",
-          "ko": "패킹된 레벨"
+          "ja": "\u30d1\u30c3\u30af\u6e08\u307f\u30ec\u30d9\u30eb",
+          "ko": "\ud328\ud0b9\ub41c \ub808\ubca8"
         },
         "description": {
           "en": "The level in the form OpenLara reads on the device.",
-          "de": "Das Level in der Form, die OpenLara auf dem Gerät liest.",
+          "de": "Das Level in der Form, die OpenLara auf dem Ger\u00e4t liest.",
           "fr": "Le niveau dans la forme que OpenLara lit sur l'appareil.",
           "es": "El nivel en el formato que OpenLara lee en el dispositivo.",
-          "pl": "Poziom w postaci, którą OpenLara odczytuje na urządzeniu.",
-          "ja": "OpenLara が本体で読み込む形式のレベル。",
-          "ko": "OpenLara가 기기에서 읽는 형식의 레벨."
+          "pl": "Poziom w postaci, kt\u00f3r\u0105 OpenLara odczytuje na urz\u0105dzeniu.",
+          "ja": "OpenLara \u304c\u672c\u4f53\u3067\u8aad\u307f\u8fbc\u3080\u5f62\u5f0f\u306e\u30ec\u30d9\u30eb\u3002",
+          "ko": "OpenLara\uac00 \uae30\uae30\uc5d0\uc11c \uc77d\ub294 \ud615\uc2dd\uc758 \ub808\ubca8."
         }
       }
     ]
   },
-  "$comment": "dataDir is 'openlara' because src/platform/gnw/os.cpp searches that literal folder name, which matches neither PACKED_BIN (OpenLara.bin) nor HB_NAME (OpenLara). originalSystem is 'dos' because the .PHD files this converter reads are the PC release's; the PlayStation and Saturn discs carry formats it cannot read."
+  "$comment": "dataDir is 'openlara' because src/platform/gnw/os.cpp searches that literal folder name, which matches neither PACKED_BIN (OpenLara.bin) nor HB_NAME (OpenLara). originalSystem is 'dos' because the .PHD files this converter reads are the PC release's; the PlayStation and Saturn discs carry formats it cannot read. originalName is 'Tomb Raider' because the title is the engine's name, which no art library holds."
 }
