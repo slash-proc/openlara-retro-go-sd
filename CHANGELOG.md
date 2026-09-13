@@ -5,6 +5,12 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 match a section heading exactly (for example `v0.1.0`); CI reads the matching
 section and uses it as the GitHub Release notes.
 
+## [v0.0.2] - 2026-09-13
+
+### Changed
+
+- Publish conservative runtime save and savestate support metadata for LFS sizing.
+
 ## [Unreleased]
 
 ### Added
