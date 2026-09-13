@@ -2,6 +2,10 @@
   "originalSystem": "dos",
   "originalName": "Tomb Raider",
   "dataDir": "openlara",
+  "runtime": {
+    "savestate": { "supported": false },
+    "save": { "supported": false }
+  },
   "tool": {
     "id": "openlara-levels",
     "title": {
